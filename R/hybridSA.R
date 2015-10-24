@@ -65,7 +65,7 @@ hybridsa <- function (Rj, c_obs, csim, asens, sig_c_obs, sig_ctm, sig_lnr) {
 #' @param sens_by_day
 #' @return vector of length 20, either of NA's if input has any missing values,
 #'  or numeric vector otherwise
-#'
+#' @export
 get_optim <- function(conc_by_day, sens_by_day, .sources = sources) {
 
   # TODO: DEFINE "SOURCES"
@@ -84,14 +84,33 @@ get_optim <- function(conc_by_day, sens_by_day, .sources = sources) {
   optim_init <- rep(1, num_sources) # initial values; vec of 20 1's
 
   # otherwise, if no missing values, then perform the optimization
-  opt_vals <- nloptr::lbfgs(x0=optim_init, fn=hybridsa, lower=lb1, upper=ub1,
-                            control=list(maxeval=200, xtol_rel=1e-6),
-                            c_obs = conc_by_day$Conc_obs,
-                            csim = conc_by_day$c_sim,
-                            asens=sens_by_day[, .sources],
-                            sig_c_obs = conc_by_day$sig_c_obs,
-                            sig_lnr = sig_lnr06,
-                            sig_ctm = sig_ctm06)
-  opt_vals$par
+  # if
+  opt_vals <- try({nloptr::lbfgs(x0=optim_init, fn=hybridsa, lower=lb1, upper=ub1,
+                                 control=list(maxeval=200, xtol_rel=1e-6),
+                                 c_obs = conc_by_day$Conc_obs,
+                                 csim = conc_by_day$c_sim,
+                                 asens=sens_by_day[, .sources],
+                                 sig_c_obs = conc_by_day$sig_c_obs,
+                                 sig_lnr = sig_lnr06,
+                                 sig_ctm = sig_ctm06)}, silent = TRUE)
+
+  if( !is.error(opt_vals) ) return(opt_vals$par)
+
+  # second attempt
+  opt_vals <- try({nloptr::slsqp(x0=optim_init, fn=hybridsa, lower=lb1, upper=ub1,
+                                 control=list(maxeval=200, xtol_rel=1e-6),
+                                 c_obs = conc_by_day$Conc_obs,
+                                 csim = conc_by_day$c_sim,
+                                 asens=sens_by_day[, .sources],
+                                 sig_c_obs = conc_by_day$sig_c_obs,
+                                 sig_lnr = sig_lnr06,
+                                 sig_ctm = sig_ctm06)}, silent = TRUE)
+
+  if(is.atomic(opt_vals)) return( rep(NA, length(.sources)) )
+  else return(opt_vals$par)
 }
+
+
+
+
 

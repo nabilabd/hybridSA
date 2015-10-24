@@ -7,5 +7,5 @@ Documentation is still (clearly) ongoing. Stay tuned!
 
 ## References
 
-* The paper by (Hu et. al)[http://atmos-chem-phys.net/14/5415/2014/]
+* The paper by [Hu et. al](http://atmos-chem-phys.net/14/5415/2014/)
 
