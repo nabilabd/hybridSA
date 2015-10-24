@@ -72,19 +72,17 @@ get_optim <- function(conc_by_day, sens_by_day, .sources = sources) {
   # return NA values for the optimization if there are any missing values
   # in the SA sensitivity matrix or observed values
   cols <- c("sig_c_obs", "Conc_obs", "c_sim")
-  leng <- length(.sources)
+  num_sources <- length(.sources)
 
   if(anyNA(conc_by_day[, cols]) | anyNA(sens_by_day[, .sources])) {
-    return(rep(NA, leng))
+    return(rep(NA, num_sources))
   }
 
   # define parameters
-  num_sources <- length(.sources)
-  lb1 <- rep(0.1, num_sources); ub1 <- rep(10.0, num_sources) # Suni used these
+  lb <- rep(0.1, num_sources); ub <- rep(10.0, num_sources) # Suni used these
   optim_init <- rep(1, num_sources) # initial values; vec of 20 1's
 
   # otherwise, if no missing values, then perform the optimization
-  # if
   opt_vals <- try({nloptr::lbfgs(x0=optim_init, fn=hybridsa, lower=lb1, upper=ub1,
                                  control=list(maxeval=200, xtol_rel=1e-6),
                                  c_obs = conc_by_day$Conc_obs,
@@ -106,7 +104,7 @@ get_optim <- function(conc_by_day, sens_by_day, .sources = sources) {
                                  sig_lnr = sig_lnr06,
                                  sig_ctm = sig_ctm06)}, silent = TRUE)
 
-  if(is.atomic(opt_vals)) return( rep(NA, length(.sources)) )
+  if(is.atomic(opt_vals)) return( rep(NA, num_sources) )
   else return(opt_vals$par)
 }
 
