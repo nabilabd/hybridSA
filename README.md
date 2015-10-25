@@ -1,7 +1,7 @@
 Hybrid Source Apportionment
 -----------------------------
 
-This is a package implementing a novel method for source apportionment of fine particulate matter(i.e., $PM_{2.5}$). And an attempt at, um, [actual science](http://simplystatistics.org/2013/01/23/statisticians-and-computer-scientists-if-there-is-no-code-there-is-no-paper/).
+This is a package implementing a novel method for source apportionment of fine particulate matter(i.e., PM2.5). And an attempt at, um, [actual science](http://simplystatistics.org/2013/01/23/statisticians-and-computer-scientists-if-there-is-no-code-there-is-no-paper/).
 
 Documentation is still (clearly) ongoing. Stay tuned!
 
