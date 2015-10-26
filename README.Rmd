@@ -6,7 +6,13 @@ output:
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->
 
-
+```{r, echo = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.path = "README-"
+)
+```
 
 
 # Hybrid Source Apportionment
@@ -23,8 +29,7 @@ Observation data at monitoring sites is typically highly sparse, spatially. On t
 
 To install the package, you can run the following commands:
 
-
-```r
+```{r, eval=FALSE}
 library(devtools)
 install_github("nabilabd/hybridSA")
 ```
