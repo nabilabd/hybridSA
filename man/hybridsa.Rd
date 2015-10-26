@@ -13,7 +13,7 @@ hybridsa(Rj, c_obs, csim, asens, sig_c_obs, sig_ctm, sig_lnr)
 
 \item{csim}{simulated concentration}
 
-\item{asens}{2d matrix of average sensitivities, with rows corresponding to
+\item{asens}{2d matrix of average (daily) sensitivities, with rows corresponding to
 species and columns corresponding to sources. The sensitivies are in the
 CMAQ output, along with simulated concentrations}
 
@@ -22,22 +22,6 @@ CMAQ output, along with simulated concentrations}
 \item{sig_ctm}{uncertainty in ....}
 
 \item{sig_lnr}{uncertainty in Rj value (???)}
-
-\item{error}{difference in observations and simulated concentrations, given
-by c_obs - c_init}
-
-\item{w2}{vector of values eqtn{sigma^{-2}_{ln(R_j)}}.}
-
-\item{weight}{the reciprocal of eqtn{sigma^2_{c_i^obs} + sigma^2_{SR_i^CTM}}; a
-constant in the first summation term. sigma^2_{c_i^obs} is the uncertainty
-in the observed concentration of species "i". eqtn{sigma^2_{SR_i^CTM}} is ...}
-
-\item{gama}{value of the Gamma weight for the second summation in the Hybrid
- equation}
-
-\item{Rj}{}
-
-\item{asens}{matrix of average (by day) sensitivities}
 }
 \description{
 Describe this.

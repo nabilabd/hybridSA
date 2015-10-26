@@ -2,3 +2,6 @@
 
 export(get_optim)
 export(hybridsa)
+importFrom(assertthat,is.error)
+importFrom(nloptr,lbfgs)
+importFrom(nloptr,slsqp)
