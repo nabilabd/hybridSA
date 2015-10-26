@@ -4,12 +4,14 @@
 \alias{get_optim}
 \title{Get optimization values given asens and}
 \usage{
-get_optim(conc_by_day, sens_by_day, .sources = sources)
+get_optim(conc_by_day, sens_by_day, .sources)
 }
 \arguments{
-\item{conc_by_day}{}
+\item{conc_by_day}{concentrations of chemical species for a given day}
 
-\item{sens_by_day}{}
+\item{sens_by_day}{matrix of sensitivities, for a given day}
+
+\item{.sources}{sources of PM2.5}
 }
 \value{
 vector of length 20, either of NA's if input has any missing values,

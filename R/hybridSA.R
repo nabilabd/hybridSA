@@ -23,6 +23,15 @@
 #'
 #'
 #'  @references \url{http://atmos-chem-phys.net/14/5415/2014/}
+#'
+#' @param Rj
+#' @param c_obs observed concentration
+#' @param csim simulated concentration
+#' @param asens matrix of average (by day) sensitivities
+#' @param sig_c_obs uncertainties in observed concentrations
+#' @param sig_ctm uncertainty in ....
+#' @param sig_lnr uncertainty in Rj value (???)
+#'
 #'  @export
 #'
 hybridsa <- function (Rj, c_obs, csim, asens, sig_c_obs, sig_ctm, sig_lnr) {
@@ -31,7 +40,7 @@ hybridsa <- function (Rj, c_obs, csim, asens, sig_c_obs, sig_ctm, sig_lnr) {
 
   # directly calculate:
   weight <- 1 / ( sig_c_obs^2 + (c_obs * sig_ctm)^2 )
-  asens <- asens %>% as.matrix
+  asens <- as.matrix(asens)
   error = c_obs - csim
 
   # initialize constants, and placeholders for sums
@@ -61,14 +70,16 @@ hybridsa <- function (Rj, c_obs, csim, asens, sig_c_obs, sig_ctm, sig_lnr) {
 #' @details this is a function in beta
 #'
 #'
-#' @param conc_by_day
-#' @param sens_by_day
+#' @param conc_by_day concentrations of chemical species for a given day
+#' @param sens_by_day matrix of sensitivities, for a given day
+#' @param .sources sources of PM2.5
+#'
 #' @return vector of length 20, either of NA's if input has any missing values,
 #'  or numeric vector otherwise
+#'
 #' @export
-get_optim <- function(conc_by_day, sens_by_day, .sources = sources) {
+get_optim <- function(conc_by_day, sens_by_day, .sources) {
 
-  # TODO: DEFINE "SOURCES"
   # return NA values for the optimization if there are any missing values
   # in the SA sensitivity matrix or observed values
   cols <- c("sig_c_obs", "Conc_obs", "c_sim")
@@ -107,8 +118,5 @@ get_optim <- function(conc_by_day, sens_by_day, .sources = sources) {
   if(is.atomic(opt_vals)) return( rep(NA, num_sources) )
   else return(opt_vals$par)
 }
-
-
-
 
 
