@@ -1,2 +1,2 @@
 README.md: README.Rmd
-	Rscript -e 'library(knitr); print(dir()); knit("README.Rmd")'
+	Rscript -e 'knitr::knit("README.Rmd")'
