@@ -41,8 +41,6 @@ suppressPackageStartupMessages({
 
 
 csn_site_index2 <- load("data/csn_site_index2.rda")
-
-
 source("R/utils.R")
 
 #' @param fpath file path of the observation data
@@ -55,14 +53,28 @@ read_pm <- function(fpath) {
     semi_join(csn_site_index2)
 }
 
-agg_obs <- dir("data-raw/", full.names = TRUE) %>%
-  ldply(read_pm) %>% tbl_df
 
-# uncomment and run commands to store the observations
-#
-# raw_files <- dir("data-raw/", full.names = TRUE)
-# csv_files <- Filter(function(x) str_sub(basename(x), -4, -1) == ".csv", raw_files)
-# agg_obs <- csv_files %>% ldply(read_pm) %>% tbl_df # ~6.8 million observations
-#
+raw_files <- dir("data-raw/", full.names = TRUE)
+csv_files <- Filter(function(x) str_sub(basename(x), -4, -1) == ".csv", raw_files)
+agg_obs <- csv_files %>% ldply(read_pm) %>% tbl_df # ~6.8 million observations
+
+# uncomment to store the observations
 # save(agg_obs, "data/agg_obs.rdata")
+
+
+# -----------------------------
+# Step 3) Filter
+# -----------------------------
+
+
+params <- read_excel("hsa_data/parameter_codees_desc_NA.xlsx") %>%
+  set_colnames(c("ParameterCode", "Species"))
+all_params <- read_csv("hsa_data/param_codenames.csv")
+comb_pars <- all_params %>% left_join(params)
+comb_pars %>% glimpse
+
+
+
+
+
 
