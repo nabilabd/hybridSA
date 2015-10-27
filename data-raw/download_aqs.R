@@ -66,12 +66,25 @@ agg_obs <- csv_files %>% ldply(read_pm) %>% tbl_df # ~6.8 million observations
 # Step 3) Filter
 # -----------------------------
 
+all_param_codenames <- agg_obs %>%
+  select(ParameterName, ParameterCode, MethodName, MethodCode, POC) %>%
+  unique
 
-params <- read_excel("hsa_data/parameter_codees_desc_NA.xlsx") %>%
-  set_colnames(c("ParameterCode", "Species"))
-all_params <- read_csv("hsa_data/param_codenames.csv")
-comb_pars <- all_params %>% left_join(params)
-comb_pars %>% glimpse
+# for reference
+save(all_param_codenames, "data/all_param_codenames.rda")
+
+# extract observations relevant to the analysis
+relev_obs <- agg_obs %>% inner_join(used_paramcodes)
+
+# split up to perform corrections separately, before re-combining
+pm_data <- relev_obs %>% filter(Species == "PM25")
+ocec_data <- relev_obs %>% filter(Species %in% c("OC25", "EC25"))
+rest_data <- relev_obs %>% anti_join( bind_rows(pm_data, ocec_data) )
+
+# -----------------------------
+# Step 4) Perform Corrections
+# -----------------------------
+
 
 
 
