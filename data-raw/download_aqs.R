@@ -42,14 +42,10 @@ suppressPackageStartupMessages({
 
 csn_site_index2 <- load("data/csn_site_index2.rda")
 
-rm_space_names <- function(df) {
-  colnames(df) <- str_replace_all(colnames(df), " ", "")
-  df
-}
 
-#'
+source("R/utils.R")
+
 #' @param fpath file path of the observation data
-#'
 read_pm <- function(fpath) {
 
   raw_data <- read_csv(fpath)
@@ -59,10 +55,14 @@ read_pm <- function(fpath) {
     semi_join(csn_site_index2)
 }
 
+agg_obs <- dir("data-raw/", full.names = TRUE) %>%
+  ldply(read_pm) %>% tbl_df
+
 # uncomment and run commands to store the observations
+#
 # raw_files <- dir("data-raw/", full.names = TRUE)
 # csv_files <- Filter(function(x) str_sub(basename(x), -4, -1) == ".csv", raw_files)
-# agg_obs <- csv_files %>% ldply(read_pm) %>% tbl_df
+# agg_obs <- csv_files %>% ldply(read_pm) %>% tbl_df # ~6.8 million observations
 #
 # save(agg_obs, "data/agg_obs.rdata")
 
