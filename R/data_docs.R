@@ -48,3 +48,24 @@ NULL
 #' @source \url{http://www.diamondse.info/}
 #' @references \url{http://atmos-chem-phys.net/14/5415/2014/}
 NULL
+
+#' Parameter Codes Used in Selecting Observations
+#'
+#' A dataset containing the parameter codes of the chemical species for which
+#' the observational data was obtained.
+#'
+#' @docType data
+#' @name all_param_codenames
+#' @format A data frame with 46 rows and 2 columns
+NULL
+
+#' All Parameter and Method Codes in AQS data
+#'
+#' A dataset containing the unique combinations of Parameter and Method Codes
+#' contained the in AQS observation data.
+#'
+#' @docType data
+#' @name all_param_codenames
+#' @format A data frame with 1348 rows and 5 columns
+NULL
+
