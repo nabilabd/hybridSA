@@ -74,7 +74,13 @@ all_param_codenames <- agg_obs %>%
 save(all_param_codenames, "data/all_param_codenames.rda")
 
 # extract observations relevant to the analysis
-relev_obs <- agg_obs %>% inner_join(used_paramcodes)
+relev_obs <- agg_obs %>%
+  inner_join(used_paramcodes) %>%
+  rename(lat = Latitude, long = Longitude, Date = DateLocal, avg = ArithmeticMean) %>%
+  rename(ParamCode = ParameterCode, ParamName = ParameterName) %>%
+  select(StateCountySite:long, Date, MethodCode:MethodName, Species, avg) %>%
+  select(StateCountySite, Date, Species, avg, lat:long, everything()) %>%
+  mutate(Year = year(ymd(Date)))
 
 # split up to perform corrections separately, before re-combining
 pm_data <- relev_obs %>% filter(Species == "PM25")
@@ -84,6 +90,41 @@ rest_data <- relev_obs %>% anti_join( bind_rows(pm_data, ocec_data) )
 # -----------------------------
 # Step 4) Perform Corrections
 # -----------------------------
+
+# commented code below demonstrates some of the rationale behind the computations
+
+### a) for OC/EC data
+
+source("data-raw/corrections.R")
+
+
+
+### b) for PM2.5 data, average over the duplicates
+
+# # ~62,000 site-dates with duplicated
+# pm_data %>%
+#   group_by(StateCountySite, Date) %>%
+#   summarize(len = length(avg_conc)) %>%
+#   filter(len > 1)
+#
+# # not sure why; some are due to be in POC or MethodCode, many are not
+# pm_data %>%
+#   group_by(StateCountySite, Date) %>%
+#   mutate(len = length(avg_conc)) %>%
+#   filter(len == 3) %>% ungroup %>%
+#   select(-MethodName)
+
+# so remove the duplicates by averaging
+pm_nodups <- pm_data %>%
+  select(Date, StateCountySite, Species, avg_conc, Year) %>%
+  group_by(Date, StateCountySite) %>%
+  summarize(Conc_obs = mean(avg_conc)) %>%
+  mutate(Species = "PM25", Year = year(ymd(Date))) %>%
+  select(StateCountySite, Date, Conc_obs, everything()) %>%
+  ungroup
+
+
+### c) for the rest, average over the duplicates
 
 
 
