@@ -114,20 +114,35 @@ source("data-raw/corrections.R")
 #   filter(len == 3) %>% ungroup %>%
 #   select(-MethodName)
 
-# so remove the duplicates by averaging
-pm_nodups <- pm_data %>%
-  select(Date, StateCountySite, Species, avg_conc, Year) %>%
-  group_by(Date, StateCountySite) %>%
-  summarize(Conc_obs = mean(avg_conc)) %>%
-  mutate(Species = "PM25", Year = year(ymd(Date))) %>%
-  select(StateCountySite, Date, Conc_obs, everything()) %>%
-  ungroup
+# # so remove the duplicates by averaging
+# pm_nodups <- pm_data %>%
+#   select(Date, StateCountySite, Species, avg_conc, Year) %>%
+#   group_by(Date, StateCountySite) %>%
+#   summarize(Conc_obs = mean(avg_conc)) %>%
+#   mutate(Species = "PM25", Year = year(ymd(Date))) %>%
+#   select(StateCountySite, Date, Conc_obs, everything()) %>%
+#   ungroup
 
 
 ### c) for the rest, average over the duplicates
 
+# # the other species have the same issue of duplicate values
+# rest_data %>%
+#   group_by(StateCountySite, Date, Species) %>%
+#   summarize(len = length(avg_conc)) %>%
+#   filter(len > 1)
 
+# so, remove dups for all species other than EC/OC
+rest_data2 <- bind_rows(rest_data, pm_data)
 
+# ~ 7 min
+rest_nodups <- rest_data2 %>%
+  select(Date, StateCountySite, Species, avg_conc, Year) %>%
+  group_by(Date, StateCountySite, Species) %>%
+  summarize(Conc_obs = mean(avg_conc)) %>%
+  mutate(Year = year(ymd(Date))) %>%
+  select(StateCountySite, Date, Conc_obs, everything()) %>%
+  ungroup
 
 
 
