@@ -43,7 +43,7 @@ oc_site_filt <- function(ocdf) {
 ec_site_filt <- function(ecdf) {
 
   # filtering only needed if there are "excess" measurements
-  # if there are one or three rows, then can uniquely determine corrected concentration
+  # if there are one or three rows, then can uniquely determined corrected concentration
   if( nrow(ecdf) %in% c(1, 3) ) return(ecdf)
 
   # define values
