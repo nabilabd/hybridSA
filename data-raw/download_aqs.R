@@ -93,15 +93,22 @@ rest_data <- relev_obs %>% anti_join( bind_rows(pm_data, ocec_data) )
 
 # commented code below demonstrates some of the rationale behind the computations
 
-### a) for OC/EC data
+#### a) for OC/EC data
 
 source("data-raw/corrections.R")
 
+uniq_params <- all_param_codenames %>% extract(, 1:2) %>% unique
+
+ocec_obs <- agg_obs %>%
+  semi_join( uniq_params %>% filter(str_detect(ParameterName, "EC|OC")) )
+ocec_obs %>% write_rds("data/ocec_obs.rda")
 
 
-### b) for PM2.5 data, average over the duplicates
 
-# # ~62,000 site-dates with duplicated
+
+#### b) average over the duplicates
+
+# # ~62,000 site-dates with multiple measurements
 # pm_data %>%
 #   group_by(StateCountySite, Date) %>%
 #   summarize(len = length(avg_conc)) %>%
@@ -123,9 +130,6 @@ source("data-raw/corrections.R")
 #   select(StateCountySite, Date, Conc_obs, everything()) %>%
 #   ungroup
 
-
-### c) for the rest, average over the duplicates
-
 # # the other species have the same issue of duplicate values
 # rest_data %>%
 #   group_by(StateCountySite, Date, Species) %>%
@@ -143,6 +147,14 @@ rest_nodups <- rest_data2 %>%
   mutate(Year = year(ymd(Date))) %>%
   select(StateCountySite, Date, Conc_obs, everything()) %>%
   ungroup
+
+
+# ------------------------------------------
+# Step 5) Filter Out Incomplete Site-Dates
+# ------------------------------------------
+
+
+
 
 
 
