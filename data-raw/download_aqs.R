@@ -97,13 +97,7 @@ rest_data <- relev_obs %>% anti_join( bind_rows(pm_data, ocec_data) )
 
 source("data-raw/corrections.R")
 
-uniq_params <- all_param_codenames %>% extract(, 1:2) %>% unique
-
-ocec_obs <- agg_obs %>%
-  semi_join( uniq_params %>% filter(str_detect(ParameterName, "EC|OC")) )
-ocec_obs %>% write_rds("data/ocec_obs.rda")
-
-
+# see OCEC analysis
 
 
 #### b) average over the duplicates

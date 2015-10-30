@@ -16,13 +16,13 @@ uniq_params <- all_param_codenames %>% extract(, 1:2) %>% unique
 ocec_obs <- agg_obs %>%
   semi_join( uniq_params %>% filter(str_detect(ParameterName, "EC|OC")) ) %>%
   rename(lat = Latitude, long = Longitude)
-ocec_obs %>% write_rds("data/ocec_obs.rda")
+# ocec_obs %>% write_rds("data/ocec_obs.rda")
 
 rm(uniq_params, agg_obs)
 
 ## Part 2) analyze temporal trends of parameter codes
 
-ocec_obs <- read_rds("data/ocec_obs.rda")
+# ocec_obs <- read_rds("data/ocec_obs.rda")
 
 ocec_obs <- ocec_obs %>%
   mutate(Species = str_sub(ParameterName, 1, 2), DateLocal = ymd(DateLocal))
