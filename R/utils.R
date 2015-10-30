@@ -4,6 +4,6 @@ rm_space_names <- function(df) {
   df
 }
 
-#' Is the vector sorted?
+# Is the vector sorted?
 is_sorted <- function(vec) all(vec == sort(vec))
 

@@ -55,7 +55,7 @@ NULL
 #' the observational data was obtained.
 #'
 #' @docType data
-#' @name all_param_codenames
+#' @name used_paramcodes
 #' @format A data frame with 46 rows and 2 columns
 NULL
 
@@ -68,4 +68,7 @@ NULL
 #' @name all_param_codenames
 #' @format A data frame with 1348 rows and 5 columns
 NULL
+
+
+
 
