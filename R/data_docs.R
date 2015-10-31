@@ -69,6 +69,23 @@ NULL
 #' @format A data frame with 1348 rows and 5 columns
 NULL
 
+#' AQS Measurements for 2006
+#'
+#' A dataset containing the concentrations of forty-one chemical species,
+#' as well as the uncertainties of those measurements, over the entire spatial
+#' domain of the study.
+#'
+#' @docType data
+#' @name aqs06
+#' @format A data frame with 188 rows and 9 columns
+#' \describe{
+#'   \item{SiteID}{Site ID of the monitoring station. The first }
+#'   \item{Date}{Longitude of the site}
+#'   \item{Species}{Latitude of the site}
+#'   \item{Conc_obs}{horizontal coordinate of the site in Lambert Conformal Conical (LCC) projetion, in meters}
+#'   \item{sig_c_obs}{vertical coordinate of the site in LCC projetion, in meters}
+#' }
+NULL
 
 
 
