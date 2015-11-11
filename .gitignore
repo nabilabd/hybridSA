@@ -3,3 +3,4 @@
 .RData
 packrat/lib*/
 data-raw/*.csv
+inst/doc

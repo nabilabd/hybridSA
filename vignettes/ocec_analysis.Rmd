@@ -1,0 +1,153 @@
+---
+title: "OC/EC Analysis"
+author: "Vignette Author"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{OC/EC Analysis}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Introduction
+
+In the course of the analysis for the hybridSA method, we need to incorporate 
+measurements for both Elemental and Organic carbon (EC and OC, respectively). 
+However, in the Chemical Speciation Network (CSN) of monitoring sites, many 
+different parameters relating to these two chemical species, are measured. Moreover, 
+the number of measurements taken for these various parameters, does not remain 
+constant, as we originally thought that it did. 
+
+The goal, then, in this presentation, is to inspect the kinds of measurements 
+that are available for EC and OC, and to present a rationale for selecting 
+the particular parameters we chose to use for our analysis.
+
+# Obtain the data
+
+```{r, warning=FALSE}
+suppressPackageStartupMessages({
+  library(stringr)
+  library(readr)
+  library(devtools)
+  library(tidyr)
+  library(magrittr)
+  library(lubridate)
+  library(ggplot2)
+  library(dplyr)
+  library(knitr)
+})
+
+# code used to generatte this dataset in data-raw/
+agg_obs <- readRDS("~/hsa_data/agg_observations_05_12.rds")
+```
+
+First we extract all observations from 2005-2012 for Elemental and Organic Carbon.
+
+```{r}
+# complete list of parameter codes and names in the dataset
+load("~/hybridSA/data/all_param_codenames.rda")
+uniq_params <- all_param_codenames %>% 
+  extract(, c("ParameterName", "ParameterCode")) %>% unique
+```
+
+```{r}
+# all EC/OC observations from the AQS dataset
+ocec_obs <- agg_obs %>%
+  semi_join(
+    filter(uniq_params, str_detect(ParameterName, "EC|OC")) # EC/OC paramaters used
+    ) %>%
+  rename(lat = Latitude, long = Longitude)
+rm(uniq_params, agg_obs)
+```
+
+A quick inspection of the data can be taken:
+
+```{r}
+ocec_obs %>% glimpse
+```
+
+To inspect trends in numbers of measurements taken over time, we don't want to 
+aggregate by year, since that seems too coarse initially. So we group by month and year:
+
+```{r}
+# combine
+ocec_obs <- ocec_obs %>%
+  mutate(Species = str_sub(ParameterName, 1, 2), DateLocal = ymd(DateLocal))
+
+# group observations by month and year
+ocec_obs <- ocec_obs %>%
+  mutate( Year = year(DateLocal), Month = month(DateLocal), Day = 1) %>%
+  unite(Date, Year, Month, Day, sep = "-")
+
+# table used for plot above
+table_ocec <- ocec_obs %>%
+  select(ParameterCode, ParameterName, Species) %>% unique %>%
+  mutate(Type = ifelse(str_detect(ParameterName, "TOT"), "TOT",
+                       ifelse(str_detect(ParameterName, "TOR"), "TOR", "LC")
+  )) %>% as.data.frame
+
+# here, we see data relating to the various parameters being measured
+kable(table_ocec)
+```
+
+
+
+```{r}
+# monthly counts by species and type
+counts_ocec <- ocec_obs %>%
+  mutate(Type = ifelse(str_detect(ParameterName, "TOT"), "TOT",
+                       ifelse(str_detect(ParameterName, "TOR"), "TOR", "LC")
+                       )) %>%
+  group_by(Date, Type, Species) %>%
+  summarize(num_vals = length(ArithmeticMean)) %>%
+  ungroup %>%
+  mutate(Date = ymd(Date))
+
+
+
+# TOT measurements clearly decreasing
+counts_ocec %>%
+  ggplot(aes(Date, num_vals, color = Type)) + geom_line() + # geom_point() +
+  facet_grid(. ~ Species) + ggtitle("EC/OC Measurement Types") +
+  ylab("Number of values")
+
+```
+
+
+There are a couple of noteworthy features from this graph. One is that there 
+clearly is not a constant trend in the number of measurements being taken. So, 
+we find that over time, the Thermal Optical Reflectance (TOR) method is gaining 
+popularity over the Thermal Optical Transmittance (TOT) method. As for the LC 
+category. 
+
+Instead of simply removing the "LC" category from the above graph, we can be 
+more specific, and examine the temporal trends of the indiividual parameter 
+codes over time (especially since for the earlier years, duplicate measurements 
+aren't being accounted for in the above graph, and so actual usable values are 
+much fewer than it seems): 
+
+```{r}
+ocec_data <- readRDS("~/hsa_data/ocec_data.rds")
+ocec_data %>% 
+  group_by(Year, ParamCode, Species) %>% summarize(counts = n()) %>%
+  ggplot(aes(Year, counts, color = factor(ParamCode))) +
+  geom_point() + geom_line() + ylab("Number of Observations") + 
+  ggtitle("EC/OC Measurements")
+
+```
+
+Here we see that 2009 was a turning point. 
+
+That's why from 2010 and afterwards, this analysis uses the TOR measurements, 
+and as for 2009 and before, TOT is used, with corrections performed. A potential 
+area of further investigation is the extent to which the results would vary if 
+we used the TOR values for 2009. However, the amount of Rj values obtained would 
+be approximately the same either way.
+
+
+
+
