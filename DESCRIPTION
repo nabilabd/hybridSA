@@ -6,7 +6,7 @@ Date: 2015-9-15
 Author: Nabil Abdurehman
 Maintainer: Nabil Abdurehman <nabilabdu@gatech.edu>
 Description: Apportions PM2.5 concentrations into impacts by contributing sources
-License: What license is it under?
+License: MIT + file LICENSE
 Imports: 
 	nloptr, 
 	assertthat
