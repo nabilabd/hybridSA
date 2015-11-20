@@ -40,7 +40,7 @@ suppressPackageStartupMessages({
 })
 
 
-csn_site_index2 <- load("data/csn_site_index2.rda")
+load("data/csn_site_index2.rda")
 source("R/utils.R")
 
 #' @param fpath file path of the observation data
@@ -76,10 +76,10 @@ save(all_param_codenames, "data/all_param_codenames.rda")
 # extract observations relevant to the analysis
 relev_obs <- agg_obs %>%
   inner_join(used_paramcodes) %>%
-  rename(lat = Latitude, long = Longitude, Date = DateLocal, avg = ArithmeticMean) %>%
+  rename(lat = Latitude, long = Longitude, Date = DateLocal, avg_conc = ArithmeticMean) %>%
   rename(ParamCode = ParameterCode, ParamName = ParameterName) %>%
-  select(StateCountySite:long, Date, MethodCode:MethodName, Species, avg) %>%
-  select(StateCountySite, Date, Species, avg, lat:long, everything()) %>%
+  select(StateCountySite:long, Date, MethodCode:MethodName, Species, avg_conc) %>%
+  select(StateCountySite, Date, Species, avg_conc, lat:long, everything()) %>%
   mutate(Year = year(ymd(Date)))
 
 # split up to perform corrections separately, before re-combining
@@ -98,6 +98,8 @@ rest_data <- relev_obs %>% anti_join( bind_rows(pm_data, ocec_data) )
 source("data-raw/corrections.R")
 
 # see OCEC analysis
+
+use_data(ocec_data)
 
 
 #### b) average over the duplicates
@@ -142,14 +144,37 @@ rest_nodups <- rest_data2 %>%
   select(StateCountySite, Date, Conc_obs, everything()) %>%
   ungroup
 
+corrected_aqs_ocec <- readRDS("data-raw/corrected_ocec_all.rds")
+
+
+complete_aqs <- rest_nodups %>% bind_rows(corrected_aqs_ocec) %>%
+  mutate(Date = as.character(Date))
+complete_aqs %>% saveRDS("data-raw/complete_aqs.rds")
+
 
 # ------------------------------------------
-# Step 5) Filter Out Incomplete Site-Dates
+# Step 5) Include uncertainties
 # ------------------------------------------
 
+load("data/aqs06.rda")
 
+# generate linear models for uncertainty by concentration
+make_model <- function(df) lm(sig_c_obs ~ Conc_obs, data = df)
+unc_models <- aqs06 %>% dlply(.(Species), make_model)
 
+# Adds column that contains uncertainties of the concentration measurements
+add_uncertainty <- function(df, model) {
+  df2 <- df %>% mutate(sig_c_obs = predict(model, newdata = df))
+  df2
+}
 
+# prepare observations for extrapolation from linear model
+aqs_by_species <- complete_aqs %>% dlply(.(Species))
+stopifnot( all(names(aqs_by_species) == names(unc_models)))
 
+# STILL NEED EC/OC
+myres <- Map(add_uncertainty, aqs_by_species, unc_models)
+myres_df <- myres %>% ldply(.id = "Species") %>% tbl_df
 
+myres_df %>% saveRDS("data/all_aqs_05_12.rds")
 
