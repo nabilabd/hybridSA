@@ -1,7 +1,7 @@
 
 #' Filter CSN data to obtain single OC measurement per site-day
 #'
-#' CSN measurement data canhave the
+#' CSN measurement data can have the
 #'
 #' @param ocdf dataframe wtih oc measurements
 oc_site_filt <- function(ocdf) {
@@ -11,6 +11,7 @@ oc_site_filt <- function(ocdf) {
 
   # define values
   oc_codes <- c(88320, 88305)
+  ocdf <- ocdf %>% filter(ParamCode %in% oc_codes) # in case other params used
 
   if(oc_codes[1] %in% ocdf$ParamCode) {
     res <- filter(ocdf, ParamCode == oc_codes[1])
@@ -18,19 +19,11 @@ oc_site_filt <- function(ocdf) {
     res <- filter(ocdf, ParamCode == oc_codes[2])
   }
 
-  # multiple methods by have been used. first choose the method, then if still
-  # have duplicates, just take the first row (i.e., minimum POC)
-  if(nrow(res) > 1) {
-    res <- filter(res, MethodCode == min(MethodCode))
-  }
-
-  if(nrow(res) > 1) res <- res[1, ]
-
   # return results
   return(res)
 }
 
-#'
+#' Remove Duplicated Measurements from Monitoring Sites
 #'
 #' The original data has duplicated measurements by different instruments for
 #' some sites. For those sites, measurements for a single instrument needs to
@@ -48,6 +41,8 @@ ec_site_filt <- function(ecdf) {
 
   # define values
   ec_codes <- c(88329:88331, 88307)
+  ecdf <- ecdf %>% filter(ParamCode %in% ec_codes) # remove other codes
+  # select(StateCountySite, Date, Species, avg_conc, lat:long, ParamCode, Year)
 
   if( all(ec_codes[1:3] %in% ecdf$ParamCode) ) {
     res <- filter(ecdf, ParamCode %in% ec_codes[1:3])
@@ -60,10 +55,16 @@ ec_site_filt <- function(ecdf) {
   # the measurements.
   if(nrow(res) %% 2 == 0) {
     poc_vals <- unique(res$POC) # just takes one of them, since doesn't sort
-    res <- filter(res, POC == poc_vals[1])
+    res <- filter(res, POC == poc_vals[1]) # THIS IS ARBITRARY
   }
 
-  # if(nrow(res) > 1) res <- res[1, ] # try results w/o this condition
+  # keeping first row, doesn't change # of NA's in oc_res2
+  # if(nrow(res) > 1) { #  && unique(res$ParamCode) == 88307) {
+  #   res <- res[1, ] # try results w/o this condition
+  #   # res <- res %>%
+  #   #   group_by(StateCountySite, Date, long, lat, Year) %>%
+  #   #   summarize(avg_conc = mean(avg_conc))
+  # }
 
   # return results
   return(res)
@@ -88,8 +89,8 @@ gen_oc_imp <- function(df) {
 
   df2 <- df %>%
     mutate(mon = month(ymd(Date))) %>%
-    left_join(addit, by = c("MethodCode.x" = "SamplerCode", "mon" = "month")) %>%
-    left_join(multip, by = c("MethodCode.x" = "SamplerCode")) %>%
+    left_join(addit, by = c("mon" = "month")) %>%
+    left_join(multip, by = c("SamplerCode.x" = "SamplerCode")) %>%
     rename(A = addit_corr, M = SA)
 
   # compute then return results
