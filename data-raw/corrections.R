@@ -19,6 +19,10 @@ oc_site_filt <- function(ocdf) {
     res <- filter(ocdf, ParamCode == oc_codes[2])
   }
 
+  # use this:
+  # used_code <- ifelse(oc_codes[1] %in% ocdf$ParamCode, oc_codes[1], oc_codes[1])
+  # res <- filter(ocdf, ParamCode == used_code)
+
   # return results
   return(res)
 }
@@ -37,12 +41,10 @@ ec_site_filt <- function(ecdf) {
 
   # filtering only needed if there are "excess" measurements
   # if there are one or three rows, then can uniquely determined corrected concentration
-  if( nrow(ecdf) %in% c(1, 3) ) return(ecdf)
 
   # define values
   ec_codes <- c(88329:88331, 88307)
   ecdf <- ecdf %>% filter(ParamCode %in% ec_codes) # remove other codes
-  # select(StateCountySite, Date, Species, avg_conc, lat:long, ParamCode, Year)
 
   if( all(ec_codes[1:3] %in% ecdf$ParamCode) ) {
     res <- filter(ecdf, ParamCode %in% ec_codes[1:3])
@@ -50,21 +52,6 @@ ec_site_filt <- function(ecdf) {
     res <- filter(ecdf, ParamCode %in% ec_codes[4])
   } else
     return(ecdf)
-
-  # after filtering, should have either 1 or 3, or else there might be twice
-  # the measurements.
-  if(nrow(res) %% 2 == 0) {
-    poc_vals <- unique(res$POC) # just takes one of them, since doesn't sort
-    res <- filter(res, POC == poc_vals[1]) # THIS IS ARBITRARY
-  }
-
-  # keeping first row, doesn't change # of NA's in oc_res2
-  # if(nrow(res) > 1) { #  && unique(res$ParamCode) == 88307) {
-  #   res <- res[1, ] # try results w/o this condition
-  #   # res <- res %>%
-  #   #   group_by(StateCountySite, Date, long, lat, Year) %>%
-  #   #   summarize(avg_conc = mean(avg_conc))
-  # }
 
   # return results
   return(res)
