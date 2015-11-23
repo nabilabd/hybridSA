@@ -23,6 +23,13 @@ oc_site_filt <- function(ocdf) {
   # used_code <- ifelse(oc_codes[1] %in% ocdf$ParamCode, oc_codes[1], oc_codes[1])
   # res <- filter(ocdf, ParamCode == used_code)
 
+  # multiple methods by have been used. first choose the method, then if still
+  # have duplicates, just take the first row (i.e., minimum POC)
+  # WHAT WAS THE JUSTIFICATION ???
+  if(nrow(res) > 1) {
+    res <- filter(res, MethodCode == min(MethodCode))
+  }
+
   # return results
   return(res)
 }
@@ -52,6 +59,11 @@ ec_site_filt <- function(ecdf) {
     res <- filter(ecdf, ParamCode %in% ec_codes[4])
   } else
     return(ecdf)
+
+  # this part is a placeholder for a less arbitrary means of selection
+  if(nrow(res) > 1) {
+    res <- filter(res, MethodCode == min(MethodCode))
+  }
 
   # return results
   return(res)
