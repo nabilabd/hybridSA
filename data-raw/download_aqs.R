@@ -144,12 +144,22 @@ rest_nodups <- rest_data2 %>%
   select(StateCountySite, Date, Conc_obs, everything()) %>%
   ungroup
 
-corrected_aqs_ocec <- readRDS("data-raw/corrected_ocec_all.rds")
+corrected_aqs_ocec <- readRDS("../hsa_data/corrected_ocec_all.rds")
 
 
-complete_aqs <- rest_nodups %>% bind_rows(corrected_aqs_ocec) %>%
-  mutate(Date = as.character(Date))
-complete_aqs %>% saveRDS("data-raw/complete_aqs.rds")
+dest <- "data-raw/complete_aqs.rds"
+complete_aqs <- rest_nodups %>%
+  bind_rows(corrected_aqs_ocec) %>%
+  mutate(Date = as.character(Date)) %>%
+  separate(StateCountySite, c("State", "County", "Site"), sep = "-") %>%
+  mutate(
+    State = str_pad(State, 2, side="left", pad="0"),
+    County = str_pad(County, 3, side="left", pad="0"),
+    Site = str_pad(Site, 4, side="left", pad="0")
+  ) %>%
+  unite(SiteID, State:Site, sep="") %>%
+  arrange(SiteID, Date, Species)
+complete_aqs %>% write_rds(dest)
 
 
 # ------------------------------------------
@@ -177,4 +187,11 @@ myres <- Map(add_uncertainty, aqs_by_species, unc_models)
 myres_df <- myres %>% ldply(.id = "Species") %>% tbl_df
 
 myres_df %>% saveRDS("data/all_aqs_05_12.rds")
+
+
+# specifically for 2007, but can be generalized to other years:
+aqs07 <- myres_df %>% filter(Year == 2007) %>% arrange(SiteID, Date, Species)
+aqs07 %>%
+  readr::write_rds("/Volumes/My Passport for Mac/gpfs:pace1:/data_2007/Other_data/year_aqs.rds")
+
 
