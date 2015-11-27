@@ -89,7 +89,7 @@ gen_oc_imp <- function(df) {
   df2 <- df %>%
     mutate(mon = month(ymd(Date))) %>%
     left_join(addit, by = c("mon" = "month", "SamplerCode" = "SamplerCode")) %>%
-    left_join(multip, by = c("SamplerCode.x" = "SamplerCode")) %>%
+    left_join(multip) %>%
     rename(A = addit_corr, M = SA)
 
   # compute then return results
