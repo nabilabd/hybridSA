@@ -54,9 +54,10 @@ The simulated concentrations are generated from [CMAQ](https://www.cmascenter.or
 
 ## Tutorials 
 
-Since working with spatial (and spatio-temporal) data in `R` might seem intimidating, especially for those with less exposure to the language, I'm in the process of writing some tutorials, to help ease the learning curve, and make some the code used in this package more readily accessible. So far, thre is: 
+Since working with spatial (and spatio-temporal) data in `R` might seem intimidating, especially for those with less exposure to the language, I'm in the process of writing some tutorials, to help ease the learning curve, and make some the code used in this package more readily accessible. So far, there is: 
 * [Working wtih Spatial Data](http://rpubs.com/nabilabd/134781)
 * [Spatial Interpolation with Kriging](http://rpubs.com/nabilabd/118172) 
+* [Projecting Spatial Data](http://rpubs.com/nabilabd/142092)
 * [Working with netCDF files](http://rpubs.com/nabilabd/119121)
 
 
