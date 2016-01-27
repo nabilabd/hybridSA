@@ -1,0 +1,135 @@
+---
+title: "Hybrid Introduction"
+author: "nabil Abd..."
+date: "January 23, 2016"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+suppressPackageStartupMessages({
+  library(plyr)
+  library(tidyr)
+  library(readr)
+  library(scales)
+  library(plotly)
+  library(stringr)
+  library(maps, warn=F)
+  library(ggplot2, warn=FALSE)
+  library(magrittr)
+  library(devtools)
+  library(lubridate)
+  library(beepr)
+  library(readr)
+  library(pryr)
+})
+
+dev_mode()
+# detach("package:dplyr", unload = T)
+library(dplyr, warn = F)
+
+```
+
+## Introduction
+
+
+```{r, echo=FALSE}
+base_dir <- "/Volumes/My Passport for Mac/gpfs:pace1:/data_2005/Other_data/"
+
+concen_year05 <- read_rds( str_c(base_dir, "concen_agg.rds"))
+sa_mats05 <- read_rds( str_c(base_dir, "year_SA_matrices.rds") ) %>% 
+  from_sitedatelist()
+
+sa_mats05 <- sa_mats05 %>%  from_sitedatelist
+
+```
+
+Although the hybrid optimization has been only slightly refined from previous 
+implementations, how the computation is performed is very different. So, to help 
+bridge that gap, as well as introduce the method to those new to it, this 
+document seeks to demonstrate how the functionality is actually used. 
+
+Much of the effort behind actually using this method has gone into just re-arranging 
+the data into a suitable format, one that would facilitate the computations being 
+performed on it. 
+
+Thus, the following is divided into two parts. The first part assumes that the data is 
+already in a "proper" format, then shows how the method is used, as well as how the 
+results would be interpreted. Then, the second part, for those daring enough to 
+continue, is to illustrate how data is arranged into the format that's used. 
+
+(Of course, this assumes that all of the necessary data is already present. 
+Otherwise, there was much code needed to wrangle and combine the data together from 
+different locations and formats. That code, however, is likely less immediately 
+relevant to understanding the method itself, and would only be useful to users if 
+they obtain the raw data in the same format. Therefore, an explanation of that 
+code used is not included here.)
+
+This order for how the hybrid optimization is used, mirrors the thought process behind 
+how the code ended up being organized, so hopefully it provides the reader 
+some motivation. 
+
+This document does not aim to provide further details on what the method 
+actually is or how it was derived. See `References` on papers which elaborate on it, 
+which go into much more explanation than this introduction can.
+
+
+## Usage
+
+The optimization is performed on each site-date (i.e., a given site on a given date) 
+independently. 
+
+Two types of data are needed: 
+
+1. Concentration data
+2. Sensitivity matrices
+
+The concentration data includes: simulated concentrations, observed concentrations, 
+and uncertainties of the observed concentrations. The sensitivity matrices, on the 
+other hand, contain sensitivities of the chemical species to the sources which 
+PM2.5 is being apportioned into. 
+
+There are two main functions in the `hybridSA` package: `hybridsa`, and `get_optim`.
+The former is an objective function, and is hidden from the user. 
+
+
+### Single Site, Single Date
+
+
+```{r}
+hyb_dir <- "/Volumes/My Passport for Mac/GRA work/hybridSA/"
+
+source( str_c(hyb_dir, "R/hybridSA.R") )
+
+# choose a site-date for which the Rj values converge
+working_site_id <- "010730023"
+working_date <- "2005-11-24"
+
+concen_day <- concen_year05 %>% ungroup %>% 
+  filter(SiteID == working_site_id, Date == working_date)
+samat_day <- sa_mats05[[working_site_id]][[working_date]] %>% 
+  set_names(c("Species"))
+```
+
+
+
+```{r}
+
+```
+
+
+
+
+### Single Site, Whole Year
+
+
+
+### All Sites, Whole Year
+
+
+
+
+
+
+
