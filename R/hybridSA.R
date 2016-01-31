@@ -14,6 +14,7 @@ load("data/sig_ctm06.rda"); load("data/sig_lnr06.rda")
 #' @param sig_ctm uncertainty in ....
 #' @param sig_lnr uncertainty in Rj value (???)
 #'
+#' @return a dataframe containing Rj values for the sources
 #'  @details Gamma is a parameter specified by the user, and not necessarily
 #'    bound to any observed or simulated data. The simulated concentrations
 #'    are needed to obtain the error, which is given by c_obs - c_sim, the
@@ -80,14 +81,15 @@ get_optim <- function(conc_by_day, sens_by_day, .sources) {
   # in the SA sensitivity matrix or observed values
   cols <- c("sig_c_obs", "Conc_obs", "c_sim")
   num_sources <- length(.sources)
+  res <- data.frame(Source = .sources, Rj_vals = rep(NA, num_sources)) # default
 
   if(anyNA(conc_by_day[, cols]) | anyNA(sens_by_day[, .sources])) {
-    return(rep(NA, num_sources))
+    return(res)
   }
 
   # define parameters
   lb <- rep(0.1, num_sources); ub <- rep(10.0, num_sources) # Suni used these
-  optim_init <- rep(1, num_sources) # initial values; vec of 20 1's
+  optim_init <- rep(1, num_sources) # initial values; vec of 1's
 
   # otherwise, if no missing values, then perform the optimization
   opt_vals <- try({nloptr::lbfgs(x0=optim_init, fn=hybridsa, lower=lb, upper=ub,
@@ -99,7 +101,11 @@ get_optim <- function(conc_by_day, sens_by_day, .sources) {
                                  sig_lnr = sig_lnr06,
                                  sig_ctm = sig_ctm06)}, silent = TRUE)
 
-  if( !assertthat::is.error(opt_vals) ) return(opt_vals$par)
+  # if no error, then store the values, and return the results
+  if( !assertthat::is.error(opt_vals) ) {
+    res$Rj_vals = opt_vals$par
+    return(res)
+  }
 
   # second attempt
   opt_vals <- try({nloptr::slsqp(x0=optim_init, fn=hybridsa, lower=lb, upper=ub,
@@ -111,8 +117,9 @@ get_optim <- function(conc_by_day, sens_by_day, .sources) {
                                  sig_lnr = sig_lnr06,
                                  sig_ctm = sig_ctm06)}, silent = TRUE)
 
-  if(is.atomic(opt_vals)) return( rep(NA, num_sources) )
-  else return(opt_vals$par)
+  # if no error, then store the values. Otherwise, the NA's are returned
+  if(!is.atomic(opt_vals)) res$Rj_vals <- opt_vals$par
+  return(res)
 }
 
 
