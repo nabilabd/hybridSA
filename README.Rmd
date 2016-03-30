@@ -10,7 +10,7 @@ output:
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>",
-  fig.path = "README-"
+  fig.path = "figures/README-"
 )
 ```
 
@@ -38,7 +38,7 @@ Observation data at monitoring sites is typically highly sparse, spatially. On t
 
 ## Introduction
 
-```{r, echo=FALSE, warning=FALSE, eval=FALSE}
+```{r, echo=FALSE, warning=FALSE}
 
 suppressPackageStartupMessages({
   library(dplyr)
@@ -46,16 +46,6 @@ suppressPackageStartupMessages({
   library(magrittr)
 })
 load("data/csn_site_index2.rda")
-```
-
-```{r, echo=FALSE, eval=FALSE}
-states <- map_data("state") %>% tbl_df
-
-csn_site_index2 %>% 
-  ggplot(aes(LON, LAT)) + geom_point(size = 0.5, color = "blue") + theme_bw() + 
-  geom_path(data=states, aes(x = long, y = lat, group = group, order = order)) + 
-  coord_map()
-
 ```
 
 
@@ -71,7 +61,32 @@ There are two inputs for the hybrid optimization:
 
 The observed concentrations consists of speciated PM2.5 (i.e., a breadown of particulate matter into different chemical elements it consists of or comes from) as well as PM2.5 mass. This values are obtained from the [EPA Air Quality Service (AQS)](http://aqsdr1.epa.gov/aqsweb/aqstmp/airdata/download_files.html#Daily) (under: "Particulates"). In `data-raw` is to be a script that downloads and consolidates the concentrations of these substances for 2005-2012 into a single file. Elaboration on how this data was obtained, how uncertainty calculations are performed, and more, is to be included in a forthcoming vignette.
 
-The simulated concentrations are generated from [CMAQ](https://www.cmascenter.org/cmaq/) modeling. 
+```{r, echo=FALSE}
+states <- map_data("state") %>% tbl_df
+
+us_base <- geom_path(data=states, aes(long, lat, group = group, order = order))
+
+csn_site_index2 %>% 
+  ggplot(aes(LON, LAT)) + geom_point() + 
+  geom_point(color = "green", size = 1.5)  + 
+  us_base + coord_map() + theme_bw() + ggtitle("CSN Monitoring Network - Sites Used") 
+
+```
+
+The simulated concentrations are generated from [CMAQ](https://www.cmascenter.org/cmaq/) modeling. Each value corresponds to the daily average taken over a 36 x 36km grid, and is associated with the center of that grid cell. The entire spatial domain extends beyond the contiguous US, and consists of a 112 x 148 elements. 
+
+```{r, echo=FALSE}
+
+source("R/make_grid.R")
+source("R/spatial_grid.R")
+library(sp)
+spatial_grid <- make_grid()
+
+ggplot(spatial_grid, aes(long, lat)) + geom_point(size = .5) + 
+  us_base + coord_map() + ggtitle("CMAQ Values Spatial Domain")
+```
+
+
 
 ## Tutorials 
 
