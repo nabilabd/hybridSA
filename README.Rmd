@@ -83,7 +83,7 @@ library(sp)
 spatial_grid <- make_grid()
 
 ggplot(spatial_grid, aes(long, lat)) + geom_point(size = .025) + 
-  us_base + coord_map() + ggtitle("CMAQ Values Spatial Domain")
+  us_base + coord_map() + ggtitle("CMAQ Values Spatial Domain") + theme_bw()
 ```
 
 
