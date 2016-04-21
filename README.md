@@ -36,22 +36,40 @@ There are two inputs for the hybrid optimization:
 
 The observed concentrations consists of speciated PM2.5 (i.e., a breadown of particulate matter into different chemical elements it consists of or comes from) as well as PM2.5 mass. This values are obtained from the [EPA Air Quality Service (AQS)](http://aqsdr1.epa.gov/aqsweb/aqstmp/airdata/download_files.html#Daily) (under: "Particulates"). In `data-raw` is to be a script that downloads and consolidates the concentrations of these substances for 2005-2012 into a single file. Elaboration on how this data was obtained, how uncertainty calculations are performed, and more, is to be included in a forthcoming vignette.
 
-![](figures/README-unnamed-chunk-4-1.png)
+    #> 
+    #>  # maps v3.1: updated 'world': all lakes moved to separate new #
+    #>  # 'lakes' database. Type '?world' or 'news(package="maps")'.  #
+
+![](figures/README-unnamed-chunk-4-1.png)<!-- -->
 
 The simulated concentrations are generated from [CMAQ](https://www.cmascenter.org/cmaq/) modeling. Each value corresponds to the daily average taken over a 36 x 36km grid, and is associated with the center of that grid cell. The entire spatial domain extends beyond the contiguous US, and consists of a 112 x 148 elements.
 
-![](figures/README-unnamed-chunk-5-1.png)
+![](figures/README-unnamed-chunk-5-1.png)<!-- -->
 
 Tutorials
 ---------
 
-Since working with spatial (and spatio-temporal) data in `R` might seem intimidating, especially for those with less exposure to the language, I'm in the process of writing some tutorials, to help ease the learning curve, and make some the code used in this package more readily accessible. So far, there is: \* [Working wtih Spatial Data](http://rpubs.com/nabilabd/134781) \* [Spatial Interpolation with Kriging](http://rpubs.com/nabilabd/118172) \* [Projecting Spatial Data](http://rpubs.com/nabilabd/142092) \* [Working with netCDF files](http://rpubs.com/nabilabd/119121)
+Since working with spatial (and spatio-temporal) data in `R` might seem intimidating, especially for those with less exposure to the language, I'm in the process of writing some tutorials, to help ease the learning curve, and make some the code used in this package more readily accessible. So far, there is:
+
+-   [Working wtih Spatial Data](http://rpubs.com/nabilabd/134781)
+
+-   [Spatial Interpolation with Kriging](http://rpubs.com/nabilabd/118172)
+
+-   [Projecting Spatial Data](http://rpubs.com/nabilabd/142092)
+
+-   [Working with netCDF files](http://rpubs.com/nabilabd/119121)
 
 References
 ----------
 
-Here are two papers which used an earlier version of the approach presented here: \* [Fine particulate matter source apportionment using a hybrid chemical transport and receptor model approach](http://atmos-chem-phys.net/14/5415/2014/) by Hu et. al. \* [Development of PM2.5 source impact spatial fields using a hybrid source apportionment air quality model](http://www.geosci-model-dev.net/8/2153/2015/gmd-8-2153-2015.html) by Ivey, C. et al.
+Here are two papers which used an earlier version of the approach presented here:
 
-This paper was also useful for background on methods used and some of the motivation: \* [Source apportionment of PM2.5 in the southeastern United States](http://www.sciencedirect.com/science/article/pii/S1352231005011945) by Marmur et. al
+-   [Fine particulate matter source apportionment using a hybrid chemical transport and receptor model approach](http://atmos-chem-phys.net/14/5415/2014/) by Hu et. al.
+
+-   [Development of PM2.5 source impact spatial fields using a hybrid source apportionment air quality model](http://www.geosci-model-dev.net/8/2153/2015/gmd-8-2153-2015.html) by Ivey, C. et al.
+
+This paper was also useful for background on methods used and some of the motivation:
+
+-   [Source apportionment of PM2.5 in the southeastern United States](http://www.sciencedirect.com/science/article/pii/S1352231005011945) by Marmur et. al
 
 Although this paper used a much smaller dataset than the first two, it makes up for it by presenting more of the intuition and rationale for incorporating certain components of the present implemenation.

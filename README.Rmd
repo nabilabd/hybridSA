@@ -91,19 +91,26 @@ ggplot(spatial_grid, aes(long, lat)) + geom_point(size = .5) +
 ## Tutorials 
 
 Since working with spatial (and spatio-temporal) data in `R` might seem intimidating, especially for those with less exposure to the language, I'm in the process of writing some tutorials, to help ease the learning curve, and make some the code used in this package more readily accessible. So far, there is: 
+
 * [Working wtih Spatial Data](http://rpubs.com/nabilabd/134781)
+
 * [Spatial Interpolation with Kriging](http://rpubs.com/nabilabd/118172) 
+
 * [Projecting Spatial Data](http://rpubs.com/nabilabd/142092)
+
 * [Working with netCDF files](http://rpubs.com/nabilabd/119121)
 
 
 ## References
 
 Here are two papers which used an earlier version of the approach presented here: 
+
 * [Fine particulate matter source apportionment using a hybrid chemical transport and receptor model approach](http://atmos-chem-phys.net/14/5415/2014/) by Hu et. al.
+
 * [Development of PM2.5 source impact spatial fields using a hybrid source apportionment air quality model](http://www.geosci-model-dev.net/8/2153/2015/gmd-8-2153-2015.html) by Ivey, C. et al.
 
 This paper was also useful for background on methods used and some of the motivation:
+
 * [Source apportionment of PM2.5 in the southeastern United States](http://www.sciencedirect.com/science/article/pii/S1352231005011945) by Marmur et. al
 
 Although this paper used a much smaller dataset than the first two, it makes up for it by presenting more of the intuition and rationale for incorporating certain components of the present implemenation.
