@@ -1,0 +1,64 @@
+---
+title: "Package Installation"
+author: "nabil Abd..."
+date: "May 19, 2016"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Introduction
+
+To perform processing with the hybrid optimization, using the `hybridSA` package, 
+there are a number of packages you should have installed for your `R` environment. 
+
+Running the following commands should install most of these packages on your 
+machine: 
+
+```{r}
+pkgs <- c("ggplot2", "knitr", "devtools", "rmarkdown", "spacetime", "mapproj", 
+          "purrr", "pryr", "readr", "beepr", "lubridate", "magrittr", 
+          "assertthat", "nloptr", "dplyr", "tidyr", "automap")
+
+install.packages(pkgs)
+devtools::install_github("hadley/dplyr") # fixes bugs in version 0.4.3
+```
+
+Additionally, you will also need to install the `rgdal` and `gstat` packages. Depending on 
+the operating system you're using, this might require different things. Below are some 
+possible steps you might try, but since software is constantly being updated, you 
+might need to look elsewhere to address the specific problems you might be having. 
+
+## Installing `rgdal`
+
+For the `rgdal` package to work properly, you should also have `gdal` installed on your machine. 
+
+* If you have a Mac, and  have `homebrew`, then you can just run `brew install gdal`. If you have a 
+Mac but don't have `homebrew`, why not? First get `homebrew`, then proceed with this installation process.
+
+* If you have a Windows or a Linux, please see online resources for how to install `gdal` onto your machine.
+
+Once you have `gdal` installed, then try running `install.packages` as above. If that doesn't work and yields some error, then try: 
+
+```{r}
+install.packages("rgdal", type = "source")
+```
+
+If you get a message saying that the `rgeos` library needs to be installed, but that fails, also try installing `geos` by 
+
+```
+brew install geos
+```
+
+from the command line.
+
+CHECK revdeps OF GSTAT AND RGDAL
+
+
+## Installing `gstat`
+
+First try to install `gstat` via `install.packages` as above (first without `type = "source"`). 
+
+

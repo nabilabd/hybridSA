@@ -1,0 +1,131 @@
+---
+title: "The Hybrid Equation"
+author: "Vignette Author"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Vignette Title}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\usepackage[utf8]{inputenc}
+---
+
+
+# Introduction
+
+This is a brief overview of the Hybrid Equation, aimed at providing a general understanding of what the equation is and what it does, as well as its inputs and outputs. 
+
+# The Equation
+
+## Main Idea
+
+The motivating question to keep in mind is: given that there are discrepancies between observed and simulated concentrations of chemicals in the air, how can we combine both of these values to produce a more accurate estimated concentration? To achieve this goal, first we define the objective function \chi^{2}
+  asNote that the convention used in this document is that the index i
+  refers to chemical species and j
+  to sources. Thus, in this equation, the first summation is over species and the second over sources.:
+
+\deqn{
+\chi^{2}=\sum_{i=1}^{N}\left[\frac{\left[c_{i}^{obs}-c_{i}^{sim}-\sum_{j=1}^{J}SA_{i,j}^{base}(R_{j}-1)\right]^{2}}{\sigma_{obs}^{2}+\sigma_{SP}^{2}}\right]+\Gamma\sum_{j=1}^{J}\frac{\ln(R_{j})^{2}}{\sigma_{\ln(R_{j})}^{2}}
+}
+ 
+
+Some of the variables in the Equation [eq:1] are supposed to be calculated, while others are initial values that need to be specified. In any case, once all the inputs are determined, then upon executing an optimization prodedure, we obtain values \eqn{R_{j}}
+  which are used to adjust original source impact estimates as follows:
+  \deqn{SA_{ij}^{adj}=R_{j}\cdot SA_{ij}^{base}}
+where \eqn{SA^{base}} is the matrix of base sensitiviies, and \eqn{SA^{adj}} is the matrix of adjusted sensitivies (to be explained more in what follows). 
+
+** Mechanics and Interpretation
+
+As for the mechanics of the equation, recall that there are forty-one chemical species being monitored and twenty different sources (for the 2006 data) those species could have come. Also, note that equation requires as inputs:
+
+* \eqn{c_{i}^{obs}}
+  the observed species concentration
+
+* \eqn{c_{i}^{sim}}
+ - the simulated species concentration, i.e., simulated by CMAQ. The difference (c_{i}^{obs}-c_{i}^{sim})
+  in Equation [eq:1] is the “error” in the simulation.
+
+* \eqn{SA}
+  - the source apportionment matrix. This matrix consists of sensitivies of the chemical species to to pollution sources. Hence, (for the 2006 data) it is a 41x20 matrix, where the element \eqn{SA_{ij}}
+  is the sensitivity of species i
+  to source j
+ . 
+
+* \eqn{\sigma_{obs}^{2}}
+  is the uncertainty (i.e., variance) in the measurement of the observed concentration.
+
+* \eqn{\sigma_{SP}^{2}}
+  - uncertainty in source profile
+
+* \eqn{\sigma_{\ln(R_{j})}^{2}}
+  - variance in source strength 
+
+* \eqn{\Gamma}
+  is a constant, subject to specification (i.e., not fixed a priori). This constant serves to weight the amount of change in source impact. 
+
+* The vector of values \eqn{R=(R_{1},R_{2},...,R_{20})}
+ . These are the initial values for the optimization of Equation [eq:1], and are all presently set to 1
+ .
+
+NB: While the objective equation uses variance for the uncertainties, the uncertainties in observed species concentrations, as recorded in the AQS data files, are given as standard deviations \eqn{\sigma_{obs}}
+ . 
+
+### Procedure
+
+Once the initial values R_{j}
+  and constant \Gamma
+  are selected, then the objective function's value can be calculated, for a single site and date. Optimizing of the objective function \chi^{2}
+  requires utilization of a non-linear optimization routine; presently, the LBFGS (Low-storage Broyden-Fletcher-Goldfarb-Shannon) method is being used. Once the optimization converges/terminates, a new vector of R_{j}
+  values is produced, and these are the ratios to adjust the base sensitivities by. 
+
+
+
+Vignettes are long form documentation commonly included in packages. Because they are part of the distribution of the package, they need to be as compact as possible. The `html_vignette` output type provides a custom style sheet (and tweaks some options) to ensure that the resulting html is as small as possible. The `html_vignette` format:
+
+- Never uses retina figures
+- Has a smaller default figure size
+- Uses a custom CSS stylesheet instead of the default Twitter Bootstrap style
+
+## Vignette Info
+
+Note the various macros within the `vignette` setion of the metadata block above. These are required in order to instruct R how to build the vignette. Note that you should change the `title` field and the `\VignetteIndexEntry` to match the title of your vignette.
+
+## Styles
+
+The `html_vignette` template includes a basic CSS theme. To override this theme you can specify your own CSS in the document metadata as follows:
+
+    output: 
+      rmarkdown::html_vignette:
+        css: mystyles.css
+
+## Figures
+
+The figure sizes have been customised so that you can easily put two images side-by-side. 
+
+```{r, fig.show='hold'}
+plot(1:10)
+plot(10:1)
+```
+
+You can enable figure captions by `fig_caption: yes` in YAML:
+
+    output:
+      rmarkdown::html_vignette:
+        fig_caption: yes
+
+Then you can use the chunk option `fig.cap = "Your figure caption."` in **knitr**.
+
+## More Examples
+
+You can write math expressions, e.g. $Y = X\beta + \epsilon$, footnotes^[A footnote here.], and tables, e.g. using `knitr::kable()`.
+
+```{r, echo=FALSE, results='asis'}
+knitr::kable(head(mtcars, 10))
+```
+
+Also a quote using `>`:
+
+> "He who gives up [code] safety for [code] speed deserves neither."
+([via](https://twitter.com/hadleywickham/status/504368538874703872))
+
+
+

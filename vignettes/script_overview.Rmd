@@ -1,0 +1,371 @@
+---
+title: "Hybrid Script Overview"
+author: "nabil Abd..."
+date: "April 21, 2016"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, eval = FALSE)
+source_conv <- readr::read_rds("../data/source_conversion.rds")
+```
+
+## Introduction
+
+The following is a brief explanation of the steps involved in processing the 
+hybrid method for source apportionment. In the following, the author seeks to 
+explain the flow of the processing, to help the reader understand what is going 
+on at each stage.
+
+As much as possible, this document is aimed to be at a "User's" level, and so 
+does not strive to elaborate on the internals of how the algorithm works, or the 
+structures used to assist in the processing.
+
+Note that this script is intended to be work with minimal modifications, for each year's 
+worth of data. That is, if the input data is all in the proper format, then it should 
+be enough to just change the `yr` (i.e., year) parameter (see below) corresponding 
+to the data, and perhaps modify the `source_conv` table, with everything else 
+staying the same. 
+
+## Part (0): Preliminaries
+
+Since there are a number of functions used from different packages, then those 
+packages must be loaded for the following script to work. This can be done in 
+one line, where the list of packages is contained in a separate file, `load.R`:
+
+```{r}
+# load packages
+source("R/load.R")
+```
+
+### define globals
+
+Here, we define certain global parameters, that are common throughout the script.
+
+```{r}
+# pm-related data
+species <- c('Ag', 'Al', 'As', 'Ba', 'Br', 'Ca', 'Cd', 'Ce', 'Cl', 'Co', 'Cr', 
+             'Cu', 'EC25', 'Fe', 'Ga', 'Hg', 'In', 'K', 'La', 'Mg', 'Mn', 'Mo', 
+             'Na', 'NH425', 'Ni', 'NO325', 'OC25', 'P', 'Pb', 'PM25', 'Rb', 'Sb', 
+             'Se', 'Si', 'Sn', 'SO425', 'Sr', 'Ti', 'V', 'Zn', 'Zr')
+
+sources <- c("AG", "AIRC", "BIOG", "COAL", "DUST", "FIRE", "FOIL", "MEAT", 
+             "METAL", "NG", "NRDIE", "NRGAS", "NROTH", "ORDIE", "ORGAS", "OT", 
+             "OTHCMB", "SOLVENT", "SSALT", "WOOD")
+```
+
+
+
+```{r}
+source_conv <- read_rds("data/source_conversion.rds")
+```
+
+`source_conv` is a table that is basically used to standardize the naming for the sources
+used in the apportionment method. The portion of the table For 2005 looks like the following, 
+
+```{r, echo=FALSE}
+head(source_conv, 20)
+```
+
+As of the time of this writing (`r Sys.Date()`), the table includes the following 
+years: `r paste(unique(source_conv$Year), collapse=", ")`. If you want to process a 
+different year's data, then you should consult the help page for `source_conv` 
+for information on how to do so.
+
+Then we have the year the data corresponds to, as well as the standardized names 
+of the sources, and their length. The "standardization" is just a common set of names for different sources, and they are the names used in defining `sources` above. Historically, the need for "standardization" arose due to changes in CMAQ, so that there were restrictions on what names could be used. Consequently, different source names were used for $2005$ to $2007$, and so the standardization occurred to prevent the need for changes in code further downstream in the analysis.
+
+```{r}
+yr <- 2011
+.sources <- filter(source_conv, Year == yr)$Source
+num_sources <- length(.sources)
+```
+
+Now, it's useful to have the table of what sites are being used, along with their coordinates, and other relevant information. This helps later in the analysis in identifying the monitoring sites with their locations: 
+
+These are source- and species-specific constants which are needed in the hybrid optimization later on: 
+
+```{r}
+## FIX THE SIG_LNR VALUES FOR 2006, 2007
+load("../hybridSA/data/sig_lnr06.rda")
+load("../hybridSA/data/sig_ctm06.rda")
+```
+
+
+```{r}
+# site-specific data
+csn_siteind <- read_rds("~/csn_site_index2.rds")
+csn_sites <- csn_siteind %>% select(SiteID, SiteInd) %>% tbl_df
+```
+
+
+## Part (1): Extracting all relevant data
+
+Now, there are four stages of the processing, from the time of obtaining the matlab files of CMAQ output, to the final output.
+
+Overall, the directory structure used is as follows: 
+
+![File structure used for the processing.](../images/hybrid_file_structure.png)
+
+This structure is represented by the following code:
+
+```{r}
+# this should be changed according to where you place the base directory
+base_path <- paste0("../../gpfs:pace1:/data_", yr) 
+
+# names of the folder of MATLAB files for a given year can vary. The other folders named automatically
+mat_path <- paste0(base_path, "/", "/2007_SIM_v20151102/") 
+rds_path <- paste0(base_path, "/", "rds_files_", yr)
+dest_fold <- paste0(base_path, "/", "Other_data/")
+```
+
+That is, there is a *base_path*, which will have subdirectories containing files used for processing. Those subdirectories include: 
+
+* a folder containing MATLAB (i.e., `.mat`) files. This is given by `mat_path`.
+
+* a folder containing R (i.e., `.rds`) files, given by `rds_path`. 
+
+* a folder containing auxiliary files generated by and used in the processing analysis. This is `dest_fold`.
+
+### Converting MATLAB files
+
+It is assumed that there are supposed to be forty-one MATLAB files to begin with, because that is the number of species used in the analysis. Each MATLAB file should correspond to a single chemical species. Becuase it can take so long to read a single `.mat` file into R (via the `R.matlab` package), the MATLAB files are first converted to `R` files. This conversion process is done via a call to this single function: 
+
+```{r}
+# matlab files are converted to rds files:
+convert_mat_files(mat_path, yr, sind = 1, end_ind = 10, num_sources = num_sources)
+```
+
+What this function does is take every file contained in a given directory (here, `mat_path`), reads in the file, discards the metadata, and stores the result in a new folder containing the same data files, except stored in a format easier for `R` to read in. This conversion typically results in a speedup for reading in the data of at least 5x.
+
+### Extracting Site Data 
+
+Now with a folder containing `R` files, we can obtain a list of the `R` files themselves:
+
+```{r}
+curr_rds_path <- str_c(base_path, "/rds_files_", yr) 
+curr_rds_fold <- dir(curr_rds_path, full=T)
+```
+
+Note that each of the `R` files contains data for many more locations than we are interested in for the purposes of this analysis (`r 112 * 148`=112 x 148 total grid cells, compared to about 170 monitoring sites). So at this stage, what we do is extract only the CMAQ data which corresponds to the sites that we are concerned about. This extraction is done for each of the forty-one species files, and is performed via the `form_pm_cube` function. (For more on the actually structure of the files containing CMAQ data, see another vignette, and for more on the details of the function, see it's help page).
+
+For ease of access later, this dataframe is then stored. Note that this file contains of the simulated values used in the hybrid analysis.
+
+```{r}
+# ~ 3 hours
+cube_path <- str_c(base_path, "/Other_data/agg_concen_sens", str_sub(yr, 3, 4), ".rds")
+pm_df <- form_pm_cube()
+write_rds(pm_cube, cube_path)
+rm(pm_df)
+```
+
+With all of the simulated values that we need, already extracted and stored, what remains is to load the observed values. This step of the script already assumes that the year's measurement data has been not only collected, but properly formatted and saved as `year_aqs.rds` in the `Other_data` folder for the year currently being processed:
+
+```{r}
+## aggregate the observation data
+aqs_path <- str_c(base_path, "/Other_data/year_aqs.rds")
+obs_vals <- read_rds(aqs_path)
+obs_vals # tip: this object should have class `tbl_df` for better printing 
+```
+
+## Part (2): Aggregate Observation data & prepare remaining simulated values
+
+As of this stage, all the simulated and observed values to run the algorithm should be ready and obtained.
+
+Recall that the CMAQ data consists of two kinds: 
+
+1. simulated concentrations for the species
+
+2. sensitivity values (i.e., the species concentrations apportioned into the different sources)
+
+Since the hybrid equation that used in the optimization requires both observed *and* simulated concentrations, then what we want to do is first separate the two types of CMAQ data, and then pair the simulated concentrations with their observed estimates.
+
+To accomplish this task, there is a function, `store_csim`, which takes a file path (to the CMAQ site-related data) and list of source names, and then extracts only the simulated concentrations from the site-related CMAQ data. This function also takes a file path for where these simulated concentrations should be stored, if you wish to save them. If you do, then note that the `destpath` argument to the function should not be missing, and the `write` parameter must also be set to `TRUE`.
+
+```{r}
+## get and store csim values
+sim_path <- str_c(base_path, "/Other_data/year_csim_vals.rds")
+csim <- store_csim(cmaq_all_sites_path = cube_path, .sources = .sources, 
+                   destpath = sim_path, write = FALSE)
+```
+
+Once you have the data, you might want to see what it looks like. And if you have it saved already, feel free to remove it from the workspace for now, as the file is typically over two million rows.
+
+```{r}
+# visually inspect, then remove (it's a big file)
+csim
+rm(csim)
+```
+
+At this stage, we'd like to combine the simulated concentrations with the previously-collected observed measurements. This can be achieved via the `obs_aggregate` function. This function takes as input the dataframe of observed values, as well as the file path of the simulated concentrations for the year (`csim_path`), and the file path to write the results to (`dpath`). Again, as for other similar functions in this package, if you want to store the result of calling the function, then `dpath` should be specified and have the parameter `write=TRUE`.
+
+```{r}
+# combine the observation data with corresponding simulated values 
+concen_path <- str_c(base_path, "/Other_data/concen_agg.rds")
+obs_vals_agg <- obs_aggregate(obs_vals, csim_path = sim_path, dpath = concen_path, write = FALSE)
+rm(obs_vals) # no longer needed
+```
+
+Thus, all of the data relating to observed measurements is ready for the hybrid optimization. What remains is to prepare the CMAQ sensitivity data.
+
+### Formatting SA sensitivity matrices
+
+To prepare the sensitivity values, it will ultimately be helpful to arrange them into matrices, with one dimension corresponding to the sources and the other dimension to the species. Remember, though, how the CMAQ data contains daily values for over $16,000$ sites, whereas the monitor network contains less than $200$ sites? Since there is so much data we are not currently interested in, for this first part of the processing, we first subset the sensitivity values so as to only retain those for the `Date`s and `SiteID`s for which we have data.
+
+Thus, instead of keeping all of the sensitivity values, we reduce them to include only those values for site-dates for which we have a complete set of observation data. Again, we form a file path to store the results to, and the table of sensitivity values can be generated via a call to the `reduced_sa_mats` function:
+
+```{r}
+# Find the corresponding sensitivity values; ~ 3 minutes
+sens_path <- str_c(base_path, "/Other_data/reduced_sa_mats.rds")
+reduced_sa_mats <- reduced_sens_aggregate(cube_path, obs_vals_agg, 
+                                          dpath = sens_path, write=FALSE)
+
+rm(sim_path)
+```
+
+## Part (3): Prepare the data
+
+Assuming the aggregated concentration data and sensitivity data have been removed from the workspace (well, they *can* be large), the two files are read in here, and then converted to site-date lists.
+
+```{r}
+concen_agg <- readRDS(concen_path)
+sens_agg <- readRDS(sens_path)
+
+if(is.data.frame(concen_agg)) concen_agg <- concen_agg %>% to_sitedatelist()
+if(is.data.frame(sens_agg)) sens_agg <- sens_agg %>% to_sitedatelist()
+```
+
+### Digression: Site-Date Lists
+
+The motivation for the site-date list was that the hybrid optimization is performed separately for each site-day (i.e., separately for each site on each day). The site-date list is a list where each element contains the data for a single site, and each of these elements is itself a list containing data for a single day. And so `concen_agg[[1]][[2]]` would have the observed data for the first site and the second day of available data, and likewise for the indexing of `sens_agg`. Hopefully, some of the usefulness of such a method can be seen later in some of the upcoming code. 
+
+### Continuing the Processing: Finding Common Sites & Dates
+
+Typically, the simulated data is complete, in the sense that it has values for all sites and locations. With the reduced sensitivity values, there is much less extraneous simulated data, but there still might be some differences, such as having additional sites or dates, or those sites/dates being in a different order when compared to the site-date list of observed values. To alleviate this difficulty, the following block of code normalizes the data:
+
+```{r}
+# alternative idea: why not just a single inner join, on siteID and Date, then call to to_sitedatelist?
+
+# subset so data has common sites; this also orders them
+comsites <- base::intersect( names(concen_agg), names(sens_agg) )
+concen_agg2 <- concen_agg[comsites]
+sens_agg2 <- sens_agg[comsites]
+
+# site names should have same order
+library(assertthat)
+assert_that( all.equal( names(concen_agg2), names(sens_agg2) ) )
+
+# subset so each site's data has common dates
+comdates <- mapply(function(a, b) base::intersect(names(a), names(b)), 
+                   concen_agg2, sens_agg2)
+concen_agg2 <- concen_agg2 %>% Map(`[`, ., comdates)
+sens_agg2 <- sens_agg2 %>% Map(`[`, ., comdates)
+
+# check that all dates are same for each site
+assert_that( all.equal( sapply(concen_agg2, names), sapply(sens_agg2, names) ) )
+
+# up to here, the sens matrices sens_agg2 and the observations concen_agg2 have 
+# corresponding data, i.e., all sites and dates for them are the same
+rm(comdates, comsites)
+```
+
+## Part (4): Calculate Rj values
+
+The `Rj` values are an intermediate result for the hybrid processing, but nonetheless a critcial one. Again, each site-date is processed separately and independently of the others, it is natural to attempt to parallize the processing for the hybrid optimization. This can be achieved via the `parallel` library, by using a function called `mcMap`. 
+
+Now, the wrapper function which performs the hybrid optimization is `get_optim`, and it operates for a single site-date. Here, we write a thin wrapper around it, by which we specify certain parameters for the current year we are seeking to process (i.e., the year the data is for, and that year's `source`s).
+
+```{r}
+library(parallel)
+
+# set the parameters for the optimization
+yr_data_path <- str_c(base_path, "/Other_data/")
+myfunc <- function(x, y) get_optim(x, y, yr = yr, .sources = .sources)
+```
+
+Then, since the site-date lists (for observed and sensitivity values) are nested lists, a list of sites where for each site is a list of dates, then we perform the hybrid opimization for the year by nesting calls to the `mcMap` function:
+
+```{r}
+# obtain Rj values for entire year. about 70 min.
+system.time(
+  all_groups <- mcMap(function(a, b) mcMap(myfunc, a, b), concen_agg2, sens_agg2)
+)
+```
+
+Timing how long this call takes isn't necessary, but helpful; on the author's computer, he found that using `mcMap` instead of, e.g., `Map`, cut the processing time in half, from about two hours to about one hour. Also, if the processing is finished too quickly, like in under two minutes, that is a major indication that something went wrong. For instance, perhaps there is some issue with the data, because of which the optimization isn't being performed, and so there are missing values for each site-date.
+
+Once this call is finished, you may not want to print `all_groups` just yet; because of how the call was arranged, `all_groups` is also a site-date list, probably with many elements. It would be easier, then, to transform the data back to a dataframe (or, `tbl_df`), via `from_sitedatelist`. Then, removing the rows with missing Rj values (which can happen if the optimization for that sitedate failed to converge, or else there were missing values, for instance), and converting the columns of type `factor` to `character`, then we have the year's Rj values:
+
+```{r}
+year_rj <- all_groups %>% from_sitedatelist %>% 
+  dplyr::filter(!is.na(Rj_vals)) %>% 
+  dmap_at(.at = 1:3, as.character)
+year_rj
+```
+
+How the monitor stations operate is that they take measurements at regular intervals, often every third or sixth day in the year for chemical species. Other than these days, there are usually very few sites with observations, maybe ten or so across the whole US. Since in a later step of the processing, the goal is to perform spatial interpolation of the Rj values across the United States, we don't want to use the dates for which there are two few sites. So, what is done at this stage is to identify what is the set of "third days" in the year where most of the observations lie, and to exclude `Rj` values for any other dates.
+
+```{r}
+# third-day counts; 
+year_rj %>% dplyr::mutate(Index = yday(ymd(Date)) %% 3) %>% group_by(Index) %>% tally
+
+third_day_index <- .Last.value %>% filter(n == max(n)) %>% extract2("Index")
+
+# include only each third day
+year_thirds <- year_rj %>% 
+  filter(yday(ymd(Date)) %% 3 == third_day_index) 
+  left_join(csn_site_index2) %>% select(SiteID:Ym)
+```
+
+Then, we store the Rj values for the year, and for the third-days.
+
+```{r}
+yr_path <- str_c(base_path, "/Other_data/year_rj_vals.rds")
+thirds_path <- str_c(base_path, "/Other_data/year_thirds.rds")
+
+write_rds(year_rj, yr_path)
+write_rds(year_thirds, thirds_path)
+
+rm(thirds_path, yr_path)
+```
+
+
+### Storing the Rj values
+
+Notice how, up to this point, we only have Rj values for certain site-dates? Only some sites across the US, on third-days in the year, have Rj values, as opposed to the *entire* spatial domain for the *entire* year. To fix this issue, we perform spatio-temporal interpolation for the Rj values:
+
+```{r}
+rj_cubes <- form_cubes(rj_yr_thirds = year_thirds)
+```
+
+The result, stored to `rj_cubes`, is a list, where each element corresponds to a `source`. Each element of the list contains the Rj values interpolated over the complete spatio-temporal domain (so, an array with values for `r 112 * 148` = 112 x 148 sites, and $364$ days). 
+
+### Computing the Hybrid Estimates
+
+With the Rj values nwo calculated for the entire spatio-temporal domain, the final step in the processing is to revise the CMAQ sensitivities by multiplying by the corrective Rj factors, according to the equation $SA_{ij}^{adj} = SA_{ij}^{base} * R_j$. 
+
+Since for that, we need the complete spatio-temporally interpolated Rj fields, as well as the original PM2.5 sensitivities to adjust from the CMAQ data. Thus, passing in these parameters to `revise_pm_fields`, then the following is generated: 
+
+* a directory is generated, containing
+
+* a separate file for each source, where each file is a table containing the original source-apportioned PM2.5 impacts, the Rj values, and Hybrid-adjusted source impacts, for each element of the spatio-temporal domain.
+
+
+```{r}
+pm_file <- str_subset(dir(rds_path), "PM25*")
+pm_rds_path <- str_c(rds_path, "/", pm_file)
+rev_simp_dest_path <- str_c(base_path, "/../", "rev_rj", str_sub(yr, 3, -1)) %>% 
+  normalizePath
+
+revise_pm_fields(pm_rds_path, rj_list = rj_cubes, rev_simp_dest_path, yr = yr, 
+                 .src = .sources) # ~ 45 min
+```
+
+### Summary
+
+By that, all of the raw processing is complete for the hybrid source apportionment method. But there are commonly outliers in the data, both for CMAQ values and and Hybrid estimates. To account for this, a couple of steps for post-processing have been incorporating, to temporarily remove about 1% of outliers until an alternative solution or workaround can be devised.
+
+To be more specific, there might be "blow-ups" from the original cmaq data. Or, certain values which don't want to pass on for now, such as negative CMAQ sensitivities, or negative Rj values. 
+
+So, for excluding those values, see `QA_hybrid_rj.R` in `hybridAnalysis` project.
+

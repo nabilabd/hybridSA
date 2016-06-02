@@ -1,0 +1,197 @@
+---
+title: "Hybrid Pre-Processing"
+author: "nabil A."
+date: "December 16, 2015"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# globals
+num_species <- 41
+num_sources <- 20
+sources <- c("AG", "AIRC", "BIOG", "COAL", "DUST", "FIRE", "FOIL", "MEAT", 
+             "METAL", "NG", "NRDIE", "NRGAS", "NROTH", "ORDIE", "ORGAS", "OT", 
+             "OTHCMB", "SOLVENT", "SSALT", "WOOD")
+
+# load data for examples
+library(readr)
+library(magrittr)
+
+```
+
+## Introduction
+
+This document seeks to illustrate how CMAQ DDM values are pre-processed, then 
+used in hybrid source apportionment, and then post-processed for subsequent 
+analysis and interpretation of results. 
+
+The order in which this overview covers processing functionality, 
+is: 
+
+1. Conversion of MATLAB data to R objects (`convert_mat.R`)
+2. Re-arranging of R objects for hybrid calculations (`data_prep.R`, `reorder_rds_files.R`)
+
+In particular, this document elaborates on what is performed in the first two 
+parts of `new_rj_script.R`, the script used to produce `Rj` values for a single year. 
+For an explanation of how the `Rj` values are calculated, and the post-processing 
+of those values, see a subsequent vignette. 
+
+## Steps in the Analysis
+
+What is helpful to keep in mind, is that the following structure for 
+processing/manipulating the data were developed to facilitate computations with 
+limited access to RAM. That is, with the following manipulations, all of the 
+processing for a single year's data can be performed on an $8$Gb RAM laptop. This is not trivial, since 
+loaded into `R` uses up RAM, then there's is a limitation on how much data can 
+be used at any one time. Also, we want to minimize having to read in different files 
+during computations, and to use as much of the data loaded into working memory as possible. 
+
+To start, we begin with matlab files.
+
+### Converting `.mat` files
+
+The CMAQ-DDM data is originally stored in `.mat` files. This is because, although 
+the raw DDM output is in `netCDF` format, some post-processing of those raw 
+results is conducted with matlab.
+
+Since there are `r num_species` chemical species being used, then that is how 
+many matlab files there initially are. Each matlab file consists of a list of 
+sensitivity values, averaged by day. Each list contains `r num_sources + 1` elements, 
+and each element of the list is a three-dimensional array. The dimensions of the 
+array correspond to: `x-` and `y-` coordinates, and `time`. The coordinates 
+identify the cell's location in the grid, and each element of the `time` dimension 
+corresponds to a different day.
+
+Ultimately, each `.mat` file is converted into a list of arrays, stored as an `.rds` 
+file. Using this native (to R) file format significantly reduces time needed to 
+read in the data from a single file, from about five minutes to around ten seconds. 
+In turn, it simplifies subsequent computations with the data.
+
+#### Renaming Scheme
+
+No consistent naming scheme has (as of this writing) yet been adopted among the 
+team members generating the DDM results. So, to at least have consistency in the 
+`R` portion of the analysis, the names of the list elements (i.e., sources) are 
+always a subset of the following: 
+
+```{r, echo=FALSE}
+sources
+```
+
+and if they are originally otherwise in the `.mat` files, then those names 
+are converted to the above sources which they correspond to.
+
+#### Re-ordering of Sources
+
+Along with renaming the sources, the list elements of the `.mat` files should 
+be (i.e., this is as of yet not implemented) in the same order. This limits 
+the number of changes that need to be made later on in the hybridSA processing, out 
+of accomodating different years' data. For example, the order of uncertainties 
+$\sigma_{\ln(Rj)}$ for the `Rj` values wouldn't need to be changed in the hybrid 
+optimization.
+
+
+### Interval and Aggregated-Interval Files 
+
+The way the sensitivity values are arranged in the `.mat` files, is not conducive 
+to generating `hybridSA` results with `R` most efficiently. Also, given memory 
+and time constraints, ideally all the data needed to generate `Rj` values for 
+any single day, could be contained in one file. 
+
+Thus, the files are converted so they are grouped temporally instead of by 
+sensitivities of sources to species. (???) That is, the data is re-arranged so that 
+in the end, thirty-seven "aggregate interval" files are generated, one file for 
+each ten-day period in the year (except for the last). So, for example, the first 
+aggregate interval file contains all the CMAQ data for days $1-10$ in the year, the 
+second for days $11-20$ in the year, and so on. 
+
+Each aggregate interval file contains a list, where each element corresponds to 
+a single day. 
+
+```{r}
+aa <- read_rds("/Volumes/My Passport for Mac/gpfs:pace1:/data_2005/Agg_intv_files/Intv_1_agg.rds")
+names(aa)
+```
+
+In turn, the list element for a day is itself a list of forty-one 
+elements (one for each species).
+
+```{r}
+aa[[1]] %>% str
+
+```
+
+And each array in that day-list has dimensions corresponding to: x-coordinate, 
+y-coordinate, and source. (The third dimension here is one greater than the number of 
+sources, because the first contains simulated concentrations for that grid cell). 
+
+
+## Finalizing Hybrid Inputs 
+
+Up to this stage, the original CMAQ-DDM results have only been re-arranged. Now, 
+we want to take those values, and organize them into a format that can readily 
+be used for processing for hybrid source apportionment.
+
+The hybrid optimization requires two kinds of data as inputs: concentration data, 
+and CMAQ sensitivities. In the following, we describe how to obtain each of these two inputs. 
+
+### Preparing Concentration Data
+
+As for the concentration data, it consists of two types: observed values and simulated values.
+The observed values are obtained directly from the EPA website, while the 
+simulated values are contained in the CMAQ DDM. So, to combine all the concentration 
+data together, it's necessary to extract the simulated values from the aggregate interval 
+files. 
+
+Since the simulated concentrations are contained in the first index of the "Sources" dimension
+of the array, then for `Day1` (which was shown above), we can obtain just the simulated 
+concentrations by the following:
+
+```{r}
+library(plyr)
+day_sim_values <- aa[[1]] %>% llply(function(x) x[, , 1]) 
+str(day_sim_values)
+```
+
+Since we only took one "slice" from the third dimension, the resulting arrays 
+are each two-dimensional. The interpretation for `day_sim_values` would then be: 
+For the first day of the year, the simulated concentrations for `Ag` over the entire 
+spatial domain, is given by the first array, and for aluminum, by the second array, etc.
+
+There is already a script which downloads and combines all of the observed 
+concentrations over the entire spatial and temporal domain. So, all that is needed after 
+extracting these simulated values is to combine them with the previously-generated 
+observed values. And that is exactly what the `aggregate_concentrations` function does.
+
+### Preparing Sensitivity Data
+
+While the each day's simulated concentrations are contained in the first slice of 
+the arrays, the sensitivity values of the species to the sources, are contained in the 
+rest. That is, 
+
+```{r}
+day_sens_values <- aa[[1]] %>% llply(function(x) x[, , -1]) 
+str(day_sens_values)
+```
+
+The interpretation for this is as follows: for the first day of the year, in list 
+element `Ag`, the value at element `(x, y, z)` is the sensitivity of Silver to 
+the $z$th source at grid cell `(x, y)`. Note that for $2005$, `r num_sources` are 
+used for the hybrid optimization. From $2007$ onwards, though, only sixteen sources 
+are used. 
+
+From here, the sensitivities for each day of the year are extracted, and combined 
+into a single file. This is performed by the `gen_sens_mats` function, so named 
+because it generates the sensitivity matrices for each grid cell location. 
+
+## Conclusion
+
+Up to this stage, we have (hopefully) shown how the original matlab files are converted 
+to `R` objects, which are then re-arranged and manipulated to a format amenable 
+to being analyzed with the `hybridSA` package. For details on how the `Rj` values 
+are calculated, please see the next vignette in the series. 
+
+
+

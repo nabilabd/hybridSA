@@ -1,0 +1,149 @@
+---
+title: "Analysis Overview"
+author: "Nabil Abd."
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Vignette Title}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\usepackage[utf8]{inputenc}
+---
+
+
+This is an overview of how the functions in this package are used to perform 
+the hybrid optimization. Such an explanation should be helpful in understanding 
+how the purpose of each individual function fits into the larger aim of the 
+package, namely, to analyze data from CMAQ output. 
+
+In the following, the major steps in conducting the analysis are to be outlined, 
+and the specific functions used at each stage described. Broadly speaking, there 
+are three stages of the analysis:
+
+* pre-processing
+* data consolidation
+* hybrid optimization.
+
+
+## Data Description
+
+For a given year, two "types" of data are used to perform the hybrid 
+optimization:
+
+* CMAQ output
+* AQS files
+
+Generally speaking, you can think of the CMAQ output as containing sensitivities and simulated concentrations, while the AQS files consist of observed values for the Chemical Speciation Network (CSN) sites.
+
+### CMAQ data
+
+Raw CMAQ output is in NetCDF files. Currently, the analysis in R does not directly use the NetCDF files from CMAQ. Rather, MATLAB is used to read in the raw data, runs a shell script, performs some date checking manipulations, and then save the results in forty-one MATLAB objects, one per chemical species.
+
+Each of these 41 .mat objects is a list where: 
+  
+* Each element of the list is a date, with a date for each day of the year (sometimes excluding Dec. 31st)
+* For each date, there is a three-dimensional array. 
+    * Two of those dimensions form a 112x148 grid. 
+    * The third dimension consists of twenty-one elements. The first of those 21
+      has the simulated concentrations of that species for that day (across the
+      112x148 grid). The other twenty elements contain sensitivity values for 
+      that species to each of the twenty sources (of pollution). 
+
+### AQS Files
+
+Encoded in the name of each AQS file is information about the site where that data was collected. 
+
+Each file name starts with the string "AQSData", followed by a nine-digit number. This number which is the site ID for the location where the data was collected. Then after the id is an underscore ("_"), then the year the data corresponds to, and then the name ends with the extension ".xlsx."
+
+There are three worksheets of interest in each AQS file^[The other sheets, like Sheets 1-3, and "method", can be ignored for this stage of the data analysis] :
+
+* CONC - "Concentration", contains observed concentrations of the chemical species by date
+* UNC - "Uncertainty"
+* MDL - Measurement Detection Limit
+
+
+
+
+## Pre-Processing
+
+From the CMAQ files, the data files are restructured, so that instead of being divided by chemical species, the output is broken up into ten-day intervals (with the 37th interval consisting of five or six days). Since the optimization is performed by time (e.g., for a day), and then used to interpolate over space, dividing the output so they correspond to intervals of time, then it would be enough to only read in data corresponding to a single interval to perform the optimization on it.
+
+Presently, this re-organization consists of for-loops where objects are read in, split up, saved into different objects, then different parts are read in, combined, and saved into more objects. (There is much room for stream-lining this process.)
+
+## Data Consolidation
+
+### AQS Data
+
+The aqs_merge function (below) is used to aggregate all the data in the AQS excel files. As an argument, it takes in a file path to a folder containing all 
+the excel files. Then it reads in the "CONC" sheet (sheet with observed 
+concentrations) for each site and aggregates them to a single dataframe, 
+and reads in the "UNC" sheet (sheet with uncertainties for the observed concentrations) for each site and aggregates that to a dataframe. These two dataframes are returned as elements of a list.
+
+```{r}
+aqs_merge <- function(fol_path, year) {
+  # takes path of folder, checks that folder non-empty, checks all files 
+  # for same year
+  # extracts data from "CONC" sheet
+  
+  loc_files <- dir(fol_path)
+  assert_that(all(str_length(loc_files) > 0))
+  
+  # combine all. TODO: fix the check on filename
+  aqs_files <- dir(fol_path, pattern = str_c(year,"\\.xlsx"), full.names = TRUE)
+  aqs_files <- aqs_files[str_sub(basename(aqs_files), 1, 3)=="AQS"]
+  
+  names(aqs_files) <- basename(aqs_files)
+  all_unc <- ldply(aqs_files, getxl_sheet, "UNC")
+  all_conc <- ldply(aqs_files, getxl_sheet, "CONC")
+  
+  # delete entirely blank columns
+  
+  # return merged results
+  list(all_unc, all_conc)
+}
+```
+
+Once the blank columns (if any) of the two dataframes are removed, the dataframes can be 
+
+1. joined on common columns, 
+2. dlply performed to split by site, 
+3. dlply on each element to split sites by date
+
+Then the aqs object is ready to have simulated concentrations added as a column, and from there, "Error" can be computed (from c_obs and c_sim). 
+
+
+### CMAQ output
+
+At this stage, CMAQ data is arranged into 37 files, each named "Intv_[num]_agg.rds", where "[num]" is replaced with the actual interval number. Interval 1 corresponds to days 1 through 10 of the year, Interval 2 with 11 through 20, etc. 
+
+Each of the interval object is a list, where 
+
+  * the elements correspond to days of the year.
+  * each element is a list of 41 elements (the chemical species)
+  * each of those elements is a 112 x 148 x 21 matrix of sensitivity values and
+    simulated concentrations
+
+#### Part I: csim values
+
+Since less than 5% of this data are the simulated concentrations, and only a small fraction of those pertain to the CSN sites, it makes sense to separate the c_sim values from the sensitivities. Thus, the interval objects are read in one at a time, a nested llply performed (via the sites_get_csim function) to extract the simulated concentrations for each site and date, for all intervals (i.e., the whole year). Thus, all the csim values for the year are now combined into one R object. 
+
+The problem is that CMAQ produces csim values for each day of the year, while the AQS data typically only has observations for some of those dates. So, before the simulated and observed concentrations can be combined, the com_names function is used to subset, for each site, the csim values to only include dates for which there are recorded observations. (Also, if the AQS files don't contain data for all sites^[ In this and related documents, "all sites" refers to the sites in the CSN site index], then the aqs data object and csim value object should be subsetted so each is a list of data for the same sites, in the same order). Hence, at this point, there would be a list of sites and dates, one from the AQS data, another with csim values, and (virtually) all sites and dates are the same. 
+
+At this point, all the concentration data can be easily combined, via the form_site_cobslist function. This function produces a list of sites, where each site element contains a dataframe with observed and simulated concentrations, as well as the associated error. Now this object is ready for the hybrid optimization.
+
+#### Part II: sensitivity values
+
+The sensitivity values are important because they are the source apportionment (SA) matrices used in the calculations. 
+
+In the three-dimensional arrays (as described above) in the Interval objects, the sensitivites are in the 2 to 21st elements of the third dimension. 
+"get_year_csim" is called to extract the csim values for all sites and the 
+whole year. Then there are a couple manipulations, documented in 
+species_file_manip.R, to go from get_year_csim ("out") to another object 
+("out2"), to a third ("out3"). Then, this tertiary result of get_year_csim, 
+along with the output of form_site_cobslist, is the input to the function 
+hyb_site_optim. hyb_site_optim is what performs the hybrid optimization for 
+all sites. 
+
+
+## Hybrid Optimization
+
+
