@@ -6,7 +6,7 @@
 # Step 1) download the data
 # -----------------------------
 
-years <- 2005:2012
+years <- 2005:2014
 spec_url <- "http://aqsdr1.epa.gov/aqsweb/aqstmp/airdata/daily_SPEC_"
 pm_url   <- "http://aqsdr1.epa.gov/aqsweb/aqstmp/airdata/daily_88101_"
 
@@ -18,12 +18,13 @@ pmdata_paths <- c(speciation_paths, mass_pm_paths)
 for (fpath in pmdata_paths) {
 
   tmp <- tempfile(fileext = ".zip")
+  dir.create(tmp)
   download.file(fpath, tmp)
 
   unzip(tmp, exdir = "data-raw/", junkpaths = T)
 }
 
-
+rm(years, spec_url, pm_url, speciation_paths, mass_pm_paths, pmdata_paths)
 
 # -----------------------------
 # Step 2) Extract relevant data
@@ -40,7 +41,9 @@ suppressPackageStartupMessages({
 })
 
 
-load("data/csn_site_index2.rda")
+# csn_siteind <- read_rds("~/csn_siteind.rds")
+# use_data(csn_siteind)
+load("data/csn_siteind.rda")
 source("R/utils.R")
 
 #' @param fpath file path of the observation data
@@ -48,19 +51,23 @@ read_pm <- function(fpath) {
 
   raw_data <- read_csv(fpath)
   raw_data %>%
-    rm_space_names %>%
+    unspace_names %>%
     unite(StateCountySite, StateCode:SiteNum, sep="-") %>%
-    semi_join(csn_site_index2)
+    semi_join(csn_siteind)
 }
 
 
-raw_files <- dir("data-raw/", full.names = TRUE)
+# raw_files <- dir("data-raw/", full.names = TRUE)
+spec_paths <- str_c("/Volumes/My Passport for Mac/Daily Speciation/", c("csv_files", "pm_csv_files"))
+raw_files <- dir(spec_paths, full.names = TRUE)
 csv_files <- Filter(function(x) str_sub(basename(x), -4, -1) == ".csv", raw_files)
-agg_obs <- csv_files %>% ldply(read_pm) %>% tbl_df # ~6.8 million observations
+agg_obs <- csv_files %>% str_subset("2013|2014") %>% ldply(read_pm) %>% tbl_df # ~6.8 million observations
 
-# uncomment to store the observations
+# # uncomment to store the observations
 # save(agg_obs, "data/agg_obs.rdata")
+agg_obs %>% write_rds("data/later_aqs_13_14.rds")
 
+rm(csv_files, raw_files, spec_paths)
 
 # -----------------------------
 # Step 3) Filter
@@ -99,7 +106,7 @@ source("data-raw/corrections.R")
 
 # see OCEC analysis
 
-use_data(ocec_data)
+use_data(ocec_data) # stores the OC/EC values from 2005-2012 for an analysis
 
 
 #### b) average over the duplicates
@@ -133,7 +140,7 @@ use_data(ocec_data)
 #   filter(len > 1)
 
 # so, remove dups for all species other than EC/OC
-rest_data2 <- bind_rows(rest_data, pm_data)
+rest_data2 <- bind_rows(rest_data, pm_data) # dups can be removed from both categories at once
 
 # ~ 7 min
 rest_nodups <- rest_data2 %>%
@@ -144,21 +151,21 @@ rest_nodups <- rest_data2 %>%
   select(StateCountySite, Date, Conc_obs, everything()) %>%
   ungroup
 
-corrected_aqs_ocec <- readRDS("../hsa_data/corrected_ocec_all.rds")
+corrected_ocec_all <- readRDS("../hsa_data/corrected_ocec_all.rds") # WHERE IS THIS COMPUTED ???
 
+# for 2013-2014
+corrected_ocec_all <- fin_later_ocec %>% ungroup %>%
+  select(-lat, -long) %>% rename(Conc_obs = mean_conc) %>%
+  mutate(Year = year(Date)) %>%
+  select(StateCountySite:Date, Conc_obs, Species, Year)
 
-dest <- "data-raw/complete_aqs.rds"
+# ~ 30 sec
 complete_aqs <- rest_nodups %>%
-  bind_rows(corrected_aqs_ocec) %>%
+  bind_rows(corrected_ocec_all) %>%  # see why "corrected_aqs_ocec" doesn't work here now
   mutate(Date = as.character(Date)) %>%
-  separate(StateCountySite, c("State", "County", "Site"), sep = "-") %>%
-  mutate(
-    State = str_pad(State, 2, side="left", pad="0"),
-    County = str_pad(County, 3, side="left", pad="0"),
-    Site = str_pad(Site, 4, side="left", pad="0")
-  ) %>%
-  unite(SiteID, State:Site, sep="") %>%
+  from_statecountysite %>%
   arrange(SiteID, Date, Species)
+dest <- "data-raw/complete_aqs_1314.rds"
 complete_aqs %>% write_rds(dest)
 
 
@@ -167,10 +174,16 @@ complete_aqs %>% write_rds(dest)
 # ------------------------------------------
 
 load("data/aqs06.rda")
+metals <- c("Ga", "Hg", "La", "Mo")
 
 # generate linear models for uncertainty by concentration
 make_model <- function(df) lm(sig_c_obs ~ Conc_obs, data = df)
 unc_models <- aqs06 %>% dlply(.(Species), make_model)
+
+# check that model coefficients are non-negative
+unc_models %>% ldply(coefficients)
+err_mods <- .Last.value %>% filter(Conc_obs < 0 | `(Intercept)` < 0)
+
 
 # Adds column that contains uncertainties of the concentration measurements
 add_uncertainty <- function(df, model) {
@@ -182,16 +195,35 @@ add_uncertainty <- function(df, model) {
 aqs_by_species <- complete_aqs %>% dlply(.(Species))
 stopifnot( all(names(aqs_by_species) == names(unc_models)))
 
-# STILL NEED EC/OC
-myres <- Map(add_uncertainty, aqs_by_species, unc_models)
+unc_models_nonmets <- unc_models[-which(names(unc_models) %in% metals)] # for 2013-2014
+stopifnot( all(names(aqs_by_species) == names(unc_models_nonmets)))
+
+# Generate uncertainties
+myres <- Map(add_uncertainty, aqs_by_species, unc_models_nonmets) # unc_models_nonmets for 2013-2014
 myres_df <- myres %>% ldply(.id = "Species") %>% tbl_df
 
+
+# re-calculate regressino extrapolation for species with negative model coefficients
+new_oc <- myres_df %>% filter(Species == "OC25") %>%
+  mutate(sig_c_obs = 0 + err_mods[1, 3] * Conc_obs )
+myres_df[myres_df$Species == "OC25", ] <- new_oc
+rm(new_oc)
+
+# # for Vanadium, only two days affected, and Rj's are day-by-day, so no correction
+# myres_df %>% filter(Species == "V", sig_c_obs < 0)
+
+# note that there are negative Conc_obs values for: OC25, PM25, Pb. But, even
+#   in agg_obs, there are negative concentrations for ArithmeticMean ...
 myres_df %>% saveRDS("data/all_aqs_05_12.rds")
+# myres_df %>% write_rds("data/all_aqs_13_14.rds")
 
-
+# in 2013-2014, there are negative Conc_obs values for: PM25, Pb.
 # specifically for 2007, but can be generalized to other years:
 aqs07 <- myres_df %>% filter(Year == 2007) %>% arrange(SiteID, Date, Species)
 aqs07 %>%
+  filter(Conc_obs >= 0, sig_c_obs >= 0) %>%
   readr::write_rds("/Volumes/My Passport for Mac/gpfs:pace1:/data_2007/Other_data/year_aqs.rds")
+
+
 
 
